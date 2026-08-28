@@ -22,6 +22,7 @@ SPOT_CONFIG = {
     'El Palaciet':    {'lat': 40.056, 'lon': 0.076, 'azimut': 45,  'thetaCrit': 55, 'sBase': 0.10, 'offshoreMin': 290, 'offshoreMax': 340, 'tipo': 'Principal'},
     'Voramar':        {'lat': 40.060, 'lon': 0.080, 'azimut': 54,  'thetaCrit': 65, 'sBase': 0.05, 'offshoreMin': 300, 'offshoreMax': 350, 'tipo': 'Principal'},
     'La Renegà':      {'lat': 40.030, 'lon': 0.090, 'azimut': 172, 'thetaCrit': 10, 'sBase': 0.90, 'offshoreMin': 230, 'offshoreMax': 290, 'tipo': 'Secundario'},
+    'Morro de Gos':   {'lat': 40.098, 'lon': 0.147, 'azimut': 60,  'thetaCrit': 65, 'sBase': 0.05, 'offshoreMin': 300, 'offshoreMax': 350, 'tipo': 'Principal'},
     'Burriana':       {'lat': 39.880, 'lon':-0.050, 'azimut': 26,  'thetaCrit': 45, 'sBase': 0.20, 'offshoreMin': 275, 'offshoreMax': 315, 'tipo': 'Secundario'},
     'Nules':          {'lat': 39.850, 'lon': 0.080, 'azimut': 26,  'thetaCrit': 40, 'sBase': 0.25, 'offshoreMin': 275, 'offshoreMax': 315, 'tipo': 'Secundario'},
     'Almenara':       {'lat': 39.750, 'lon': 0.050, 'azimut': 26,  'thetaCrit': 35, 'sBase': 0.30, 'offshoreMin': 275, 'offshoreMax': 315, 'tipo': 'Secundario'},
