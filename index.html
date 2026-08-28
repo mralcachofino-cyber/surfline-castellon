@@ -264,7 +264,8 @@
 
   <script>
     // ==================== LÓGICA UI Y LOGIN ====================
-    const supabase = window.supabase.createClient('https://vovmemnpuneuzgssztdb.supabase.co', 'sb_publishable_Ymmr-4qnnfmrBdG5zrxjKw_qkil_ygE');
+    const { createClient } = window.supabase;
+    const supaClient = createClient('https://vovmemnpuneuzgssztdb.supabase.co', 'sb_publishable_Ymmr-4qnnfmrBdG5zrxjKw_qkil_ygE');
 
     function setAuthMode(mode) {
       if(mode === 'login') {
@@ -285,32 +286,39 @@
     }
 
     async function checkAuth() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        document.getElementById('loginOverlay').style.display = 'none';
-        const meta = session.user.user_metadata;
-        document.getElementById('profileEmail').innerText = meta.username ? `${meta.username} (${session.user.email})` : session.user.email;
-        cargarDatosMeteo(spotActual);
-        initLeafletMap();
-      } else {
+      try {
+        const { data: { session } } = await supaClient.auth.getSession();
+        if (session) {
+          document.getElementById('loginOverlay').style.display = 'none';
+          const meta = session.user.user_metadata;
+          document.getElementById('profileEmail').innerText = meta.username ? `${meta.username} (${session.user.email})` : session.user.email;
+          cargarDatosMeteo(spotActual);
+          initLeafletMap();
+        } else {
+          document.getElementById('loginOverlay').style.display = 'flex';
+        }
+      } catch (err) {
+        console.error("Error checking auth", err);
         document.getElementById('loginOverlay').style.display = 'flex';
       }
     }
 
     async function hacerLogin() {
       const e = document.getElementById('lEmail').value, p = document.getElementById('lPass').value;
-      const { error } = await supabase.auth.signInWithPassword({ email: e, password: p });
+      if(!e || !p) return alert("Rellena el correo y la contraseña.");
+      const { error } = await supaClient.auth.signInWithPassword({ email: e, password: p });
       if (error) alert('Error: ' + error.message); else checkAuth();
     }
 
     async function hacerRegistro() {
       const u = document.getElementById('rUser').value, ph = document.getElementById('rPhone').value, e = document.getElementById('rEmail').value, p = document.getElementById('rPass').value;
-      const { error } = await supabase.auth.signUp({ email: e, password: p, options: { data: { username: u, phone: ph } } });
+      if(!e || !p) return alert("El correo y la contraseña son obligatorios.");
+      const { error } = await supaClient.auth.signUp({ email: e, password: p, options: { data: { username: u, phone: ph } } });
       if (error) { alert('Error: ' + error.message); } 
-      else { alert('Registro exitoso. Inicia sesión.'); setAuthMode('login'); }
+      else { alert('Registro exitoso. Inicia sesión en la otra pestaña.'); setAuthMode('login'); }
     }
 
-    async function cerrarSesion() { await supabase.auth.signOut(); toggleProfileModal(); checkAuth(); }
+    async function cerrarSesion() { await supaClient.auth.signOut(); toggleProfileModal(); checkAuth(); }
 
     // ==================== BASE DE DATOS Y CÁMARAS ====================
     const SPOTS_DB = {
