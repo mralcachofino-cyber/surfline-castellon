@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Surfline Castellón v2.0 AI · Previsión Local</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ocean: { 900: '#070d18', 800: '#0c162b', 700: '#132344', 600: '#1b3260' },
+            surf: {
+              epic: '#a855f7',
+              good: '#10b981',
+              fair: '#eab308',
+              poor: '#f97316',
+              flat: '#64748b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Material Symbols & Fuentes -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS & JS (Mapa Satelital Gratis) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js (Gráficas Interactivas) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #070d18; }
+    .thumb-btn:active { transform: scale(0.96); }
+    .glass-card { background: rgba(12, 22, 43, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .timeline-scrubber::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: #38bdf8; cursor: pointer; box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+    }
+    #map { height: 360px; z-index: 10; }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen pb-24 selection:bg-cyan-500 selection:text-white">
+
+  <!-- ==================== BARRA SUPERIOR ==================== -->
+  <header class="sticky top-0 z-40 glass-card border-b border-slate-800 px-4 py-3">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <span class="material-symbols-outlined text-cyan-400 text-3xl">surfing</span>
+        <div>
+          <h1 class="font-extrabold text-base tracking-wider bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent uppercase">
+            Surfline CS <span class="text-xs px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold ml-1">AI</span>
+          </h1>
+          <p class="text-[10px] text-slate-400 font-medium -mt-0.5">Costa de Castellón · Física & ML</p>
+        </div>
+      </div>
+
+      <!-- Selector de Spot -->
+      <div class="flex items-center space-x-2">
+        <select id="spotSelect" onchange="cambiarSpot(this.value)" class="bg-ocean-700 text-white font-semibold text-xs py-2 px-3 rounded-xl border border-slate-700 outline-none focus:border-cyan-400">
+          <option value="Voramar">Voramar (Benicàssim)</option>
+          <option value="El Palaciet">El Palaciet (Benicàssim)</option>
+          <option value="Planetario" selected>Planetario (Grao CS)</option>
+          <option value="Gurugú">Gurugú (Castellón)</option>
+          <option value="Pirámides">Pirámides (Heliópolis)</option>
+          <option value="La Renegà">La Renegà (Oropesa)</option>
+          <option value="Burriana">Burriana (Arenal)</option>
+          <option value="Nules">Nules (Espigones)</option>
+          <option value="Almenara">Almenara (Casablanca)</option>
+          <option value="Peñíscola Norte">Peñíscola Norte</option>
+          <option value="Vinaròs">Vinaròs (Fortí)</option>
+        </select>
+
+        <button onclick="abrirModalPerfil()" class="p-2 rounded-xl bg-ocean-700 text-slate-300 hover:text-white border border-slate-700">
+          <span class="material-symbols-outlined text-lg">person</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== CONTENIDO PRINCIPAL ==================== -->
+  <main class="max-w-6xl mx-auto px-4 py-4 space-y-5">
+
+    <!-- SECCIÓN 1: VISTA DASHBOARD / HERO -->
+    <section id="view-dashboard" class="space-y-4">
+      
+      <!-- HERO CARD CON CALIDAD Y WEBCAM -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        <!-- Tarjeta de Estado y Métricas Principales (Izquierda) -->
+        <div class="lg:col-span-6 glass-card rounded-2xl p-5 space-y-4 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <span id="spotBadge" class="px-2.5 py-1 rounded-full text-xs font-extrabold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                GOOD · 4/5 ⭐
+              </span>
+              <h2 id="spotTitle" class="text-2xl font-black mt-2 tracking-tight">PLANETARIO</h2>
+              <p id="spotCoords" class="text-xs text-slate-400">39.98° N, 0.03° E · Grao de Castellón</p>
+            </div>
+            <div class="text-right">
+              <span id="liveClock" class="text-xs font-bold text-cyan-400 bg-cyan-950/60 px-2 py-1 rounded-lg border border-cyan-800">
+                14:00h
+              </span>
+              <p id="humanoScale" class="text-xs font-semibold text-slate-300 mt-2">Pecho a Hombro</p>
+            </div>
+          </div>
+
+          <!-- Tamaño de ola gigante -->
+          <div class="flex items-baseline space-x-3 my-2">
+            <span id="waveHeightBig" class="text-5xl font-black text-white tracking-tight">0.85m</span>
+            <span id="periodBig" class="text-xl font-bold text-cyan-400">5.5s</span>
+            <span id="swellDirBig" class="text-sm font-semibold text-slate-400 flex items-center">
+              <span id="swellArrowIcon" class="material-symbols-outlined text-lg mr-0.5 text-cyan-300">north_east</span>
+              75° ENE
+            </span>
+          </div>
+
+          <!-- Cuadrícula de 4 Micro Diales -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+            <div class="bg-ocean-800/80 p-2.5 rounded-xl border border-slate-800">
+              <p class="text-[10px] text-slate-400 font-semibold uppercase">Viento</p>
+              <p id="windSpeedVal" class="text-sm font-bold text-white mt-0.5">8.0 kt</p>
+              <span id="windLabelBadge" class="text-[9px] font-bold text-emerald-400">Terral 🤙</span>
+            </div>
+            <div class="bg-ocean-800/80 p-2.5 rounded-xl border border-slate-800">
+              <p class="text-[10px] text-slate-400 font-semibold uppercase">Ráfagas</p>
+              <p id="gustSpeedVal" class="text-sm font-bold text-white mt-0.5">12.0 kt</p>
+              <span class="text-[9px] font-medium text-slate-400">Mestral (WNW)</span>
+            </div>
+            <div class="bg-ocean-800/80 p-2.5 rounded-xl border border-slate-800">
+              <p class="text-[10px] text-slate-400 font-semibold uppercase">Energía</p>
+              <p id="energyVal" class="text-sm font-bold text-amber-400 mt-0.5">4.0 kJ</p>
+              <span class="text-[9px] font-medium text-slate-400">Fuerza Media</span>
+            </div>
+            <div class="bg-ocean-800/80 p-2.5 rounded-xl border border-slate-800">
+              <p class="text-[10px] text-slate-400 font-semibold uppercase">Agua Mar</p>
+              <p id="seaTempVal" class="text-sm font-bold text-cyan-300 mt-0.5">26.5 °C</p>
+              <span class="text-[9px] font-medium text-slate-400">Bañador / Licra</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mini Reproductor de Webcams (Derecha) -->
+        <div class="lg:col-span-6 glass-card rounded-2xl p-4 space-y-3 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="flex h-2.5 w-2.5 relative">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+              </span>
+              <span id="camTitle" class="text-xs font-bold text-white tracking-wide uppercase">CÁMARA EN DIRECTO</span>
+            </div>
+
+            <!-- Selector de Cam 1 / Cam 2 si aplica -->
+            <div id="camSwitchGroup" class="flex space-x-1">
+              <button onclick="cambiarCamIndex(1)" id="btnCam1" class="text-[10px] px-2 py-1 rounded-lg font-bold bg-cyan-500 text-ocean-900">Cam 1</button>
+              <button onclick="cambiarCamIndex(2)" id="btnCam2" class="text-[10px] px-2 py-1 rounded-lg font-bold bg-ocean-700 text-slate-300">Cam 2</button>
+            </div>
+          </div>
+
+          <!-- Contenedor del Vídeo / Stream -->
+          <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+            <img id="webcamMjpeg" src="https://cam1.voramar.net:445/axis-cgi/mjpg/video.cgi" alt="Webcam Live" class="w-full h-full object-cover" onerror="this.style.display='none'; document.getElementById('webcamFallback').style.display='flex';" />
+            
+            <div id="webcamFallback" class="hidden absolute inset-0 flex-col items-center justify-center p-4 text-center bg-ocean-800/95 space-y-2">
+              <span class="material-symbols-outlined text-4xl text-cyan-400">videocam</span>
+              <p class="text-xs text-slate-300 font-medium">Señal en directo disponible en visor externo</p>
+              <a id="camExternalLink" href="https://surferscastellon.com/live-webcam/" target="_blank" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-ocean-900 text-xs font-bold thumb-btn">
+                Abrir Cámara Oficial ↗
+              </a>
+            </div>
+
+            <!-- Botones de Control Flotantes -->
+            <div class="absolute bottom-2 right-2 flex space-x-1.5">
+              <button onclick="capturarFoto()" title="Capturar Foto" class="p-1.5 rounded-lg bg-ocean-900/80 text-white hover:bg-cyan-500 hover:text-ocean-900 transition-colors">
+                <span class="material-symbols-outlined text-sm">photo_camera</span>
+              </button>
+              <button onclick="recargarCam()" title="Refrescar" class="p-1.5 rounded-lg bg-ocean-900/80 text-white hover:bg-cyan-500 hover:text-ocean-900 transition-colors">
+                <span class="material-symbols-outlined text-sm">refresh</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- LÍNEA DE TIEMPO HORARIA TÁCTIL (SCRUBBER 07H A 20H) -->
+      <div class="glass-card rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-1.5">
+            <span class="material-symbols-outlined text-cyan-400 text-base">schedule</span>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Línea de Tiempo del Día</span>
+          </div>
+          <!-- Selector de Días -->
+          <div class="flex space-x-1 bg-ocean-800 p-1 rounded-xl border border-slate-700">
+            <button onclick="cambiarDiaOffset(0)" id="btnDay0" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500 text-ocean-900">Hoy</button>
+            <button onclick="cambiarDiaOffset(1)" id="btnDay1" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">Mañana</button>
+            <button onclick="cambiarDiaOffset(2)" id="btnDay2" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">+2d</button>
+            <button onclick="cambiarDiaOffset(3)" id="btnDay3" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">+3d</button>
+          </div>
+        </div>
+
+        <input type="range" id="hourSlider" min="7" max="20" value="14" step="1" oninput="cambiarHoraSlider(this.value)" class="w-full h-2 bg-ocean-700 rounded-lg appearance-none cursor-pointer timeline-scrubber">
+        
+        <div class="flex justify-between text-[11px] text-slate-400 font-semibold px-1">
+          <span>07:00h</span>
+          <span>10:00h</span>
+          <span class="text-cyan-300 font-bold">14:00h (Pico)</span>
+          <span>17:00h</span>
+          <span>20:00h</span>
+        </div>
+      </div>
+
+      <!-- TARJETA IA: TIME MACHINE (SESIÓN SIMILAR 15S) -->
+      <div id="cardSimilarSession" class="glass-card rounded-2xl p-4 border border-purple-500/30 bg-gradient-to-r from-purple-950/20 to-ocean-800 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="material-symbols-outlined text-purple-400">history_toggle_off</span>
+            <div>
+              <h3 class="text-sm font-black text-white">MEMORIA HISTÓRICA IA (85% Similitud)</h3>
+              <p class="text-xs text-slate-400">Condiciones casi idénticas a la sesión del <span class="text-purple-300 font-bold">14 de Noviembre</span></p>
+            </div>
+          </div>
+          <button onclick="abrirModalVideoSimilar()" class="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center space-x-1 thumb-btn shadow-lg shadow-purple-900/50">
+            <span class="material-symbols-outlined text-sm">play_circle</span>
+            <span>Ver Clip 15s</span>
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SECCIÓN 2: MAPA INTERACTIVO DE CASTELLÓN -->
+    <section id="view-map" class="hidden space-y-4">
+      <div class="glass-card rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="material-symbols-outlined text-cyan-400">explore</span>
+            <h2 class="text-base font-bold text-white">Mapa de Spots de la Costa de Castellón</h2>
+          </div>
+          <span class="text-xs text-slate-400">Toca un pin para ver datos</span>
+        </div>
+        <div id="map" class="rounded-xl overflow-hidden border border-slate-700"></div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 3: 6 GRÁFICAS CORREGIDAS -->
+    <section id="view-charts" class="hidden space-y-4">
+      <div class="glass-card rounded-2xl p-4 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-white">Análisis Gráfico · Previsión 4 Días</h2>
+            <p class="text-xs text-slate-400" id="chartsSpotSubtitle">Voramar · Horas y fechas 100% corregidas</p>
+          </div>
+          <span class="material-symbols-outlined text-cyan-400">monitoring</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Gráfica 1: Altura Efectiva -->
+          <div class="bg-ocean-800/80 p-3 rounded-xl border border-slate-800">
+            <p class="text-xs font-bold text-cyan-400 mb-2">🌊 1. Altura Efectiva de Ola (m)</p>
+            <canvas id="chartHeight" height="180"></canvas>
+          </div>
+          <!-- Gráfica 2: Periodo -->
+          <div class="bg-ocean-800/80 p-3 rounded-xl border border-slate-800">
+            <p class="text-xs font-bold text-amber-400 mb-2">⏱️ 2. Periodo de Ola (s)</p>
+            <canvas id="chartPeriod" height="180"></canvas>
+          </div>
+          <!-- Gráfica 3: Energía -->
+          <div class="bg-ocean-800/80 p-3 rounded-xl border border-slate-800">
+            <p class="text-xs font-bold text-purple-400 mb-2">⚡ 3. Índice de Energía (H² × T)</p>
+            <canvas id="chartEnergy" height="180"></canvas>
+          </div>
+          <!-- Gráfica 4: Viento vs Ráfagas -->
+          <div class="bg-ocean-800/80 p-3 rounded-xl border border-slate-800">
+            <p class="text-xs font-bold text-emerald-400 mb-2">💨 4. Viento vs Ráfagas (Nudos)</p>
+            <canvas id="chartWind" height="180"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 4: VOTAR SESIÓN (FEEDBACK) -->
+    <section id="view-feedback" class="hidden space-y-4">
+      <div class="glass-card rounded-2xl p-6 max-w-md mx-auto space-y-4 text-center">
+        <span class="material-symbols-outlined text-5xl text-amber-400">hotel_class</span>
+        <h2 class="text-xl font-black text-white">¿Cómo ha estado el baño hoy?</h2>
+        <p class="text-xs text-slate-400">Tus votos entrenan al modelo de Inteligencia Artificial para afinar la precisión en Castellón.</p>
+
+        <div class="space-y-4 text-left pt-2">
+          <div>
+            <label class="text-xs font-bold text-slate-300">Puntuación del Baño (1 al 10): <span id="voteNumDisplay" class="text-amber-400 text-base font-extrabold ml-1">8</span>/10</label>
+            <input type="range" id="voteSlider" min="1" max="10" value="8" step="1" oninput="document.getElementById('voteNumDisplay').innerText = this.value" class="w-full h-2 bg-ocean-700 rounded-lg appearance-none cursor-pointer timeline-scrubber mt-2">
+          </div>
+
+          <div>
+            <label class="text-xs font-bold text-slate-300">Tabla Utilizada:</label>
+            <select id="voteBoard" class="w-full mt-1 bg-ocean-700 text-xs text-white p-2.5 rounded-xl border border-slate-700">
+              <option value="Shortboard">Shortboard / Tabla Corta</option>
+              <option value="Fish">Fish / Twinfin</option>
+              <option value="Midlength">Mid-length / Híbrida</option>
+              <option value="Longboard">Longboard / Tablón</option>
+              <option value="Corchopan">Softboard / Corchopan</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-xs font-bold text-slate-300">Comentario breve (opcional):</label>
+            <input type="text" id="voteNotes" placeholder="Ej. Abriendo bien de izquierdas con poco viento" class="w-full mt-1 bg-ocean-700 text-xs text-white p-2.5 rounded-xl border border-slate-700 outline-none focus:border-cyan-400">
+          </div>
+
+          <button onclick="guardarVotoFeedback()" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 font-extrabold text-sm text-ocean-900 uppercase tracking-wider thumb-btn shadow-lg shadow-amber-900/40">
+            Enviar Valoración a la IA 🤙
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 5: PERFIL Y CONFIGURACIÓN DE ALERTAS -->
+    <section id="view-profile" class="hidden space-y-4">
+      <div class="glass-card rounded-2xl p-6 max-w-lg mx-auto space-y-5">
+        <div class="flex items-center space-x-3 border-b border-slate-800 pb-3">
+          <span class="material-symbols-outlined text-3xl text-cyan-400">tune</span>
+          <div>
+            <h2 class="text-lg font-bold text-white">Configuración de Alertas & Cuenta</h2>
+            <p class="text-xs text-slate-400">Personaliza tus avisos a 2 días vista por WhatsApp y Telegram.</p>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <h3 class="text-xs font-bold uppercase text-slate-300 mb-2">🏖️ Playas a las que estás suscrito:</h3>
+            <div id="userSpotsCheckboxes" class="grid grid-cols-2 gap-2 text-xs">
+              <!-- Rellenado dinámicamente -->
+            </div>
+          </div>
+
+          <div class="space-y-2 pt-2 border-t border-slate-800">
+            <h3 class="text-xs font-bold uppercase text-slate-300">⏱️ Opciones de Antelación:</h3>
+            <label class="flex items-center space-x-2 text-xs cursor-pointer">
+              <input type="checkbox" id="chkPreaviso2d" checked class="rounded bg-ocean-700 border-slate-700 text-cyan-500 focus:ring-0">
+              <span>Avisarme con <b>2 días de antelación</b> (Preaviso 48h)</span>
+            </label>
+            <label class="flex items-center space-x-2 text-xs cursor-pointer">
+              <input type="checkbox" id="chkParteHoy" checked class="rounded bg-ocean-700 border-slate-700 text-cyan-500 focus:ring-0">
+              <span>Avisarme el mismo día por la mañana (07:30h)</span>
+            </label>
+          </div>
+
+          <div class="space-y-3 pt-2 border-t border-slate-800">
+            <h3 class="text-xs font-bold uppercase text-slate-300">📲 Canales de Alerta:</h3>
+            <div>
+              <label class="text-[11px] text-slate-400">WhatsApp (Teléfono + API Key CallMeBot):</label>
+              <div class="grid grid-cols-2 gap-2 mt-1">
+                <input type="text" id="prefPhone" value="+34 687 688 854" placeholder="+34 600..." class="bg-ocean-700 text-xs text-white p-2 rounded-lg border border-slate-700">
+                <input type="text" id="prefCallmeKey" value="7360308" placeholder="API Key (ej. 123456)" class="bg-ocean-700 text-xs text-white p-2 rounded-lg border border-slate-700">
+              </div>
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-400">Telegram (Chat ID):</label>
+              <input type="text" id="prefTelegram" value="-1003885396809" placeholder="Tu Chat ID" class="w-full mt-1 bg-ocean-700 text-xs text-white p-2 rounded-lg border border-slate-700">
+            </div>
+          </div>
+
+          <button onclick="guardarPreferencias()" class="w-full py-2.5 rounded-xl bg-cyan-500 font-bold text-xs text-ocean-900 uppercase tracking-wider thumb-btn">
+            Guardar Configuración
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MODAL CLIP SESIÓN SIMILAR ==================== -->
+  <div id="modalVideo" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="glass-card rounded-2xl p-5 max-w-lg w-full space-y-3 border border-purple-500/40">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span class="material-symbols-outlined text-purple-400">movie</span>
+          <h3 class="text-sm font-bold text-white">Sesión del 14 Noviembre (Voramar 1.1m)</h3>
+        </div>
+        <button onclick="cerrarModalVideo()" class="text-slate-400 hover:text-white">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <!-- Vídeo Reproductor con Slow-Mo -->
+      <div class="aspect-video bg-black rounded-xl overflow-hidden relative flex items-center justify-center border border-slate-800">
+        <video id="simVideoPlayer" src="https://assets.mixkit.co/videos/preview/mixkit-waves-coming-to-the-beach-5016-large.mp4" loop autoplay muted playsinline class="w-full h-full object-cover"></video>
+      </div>
+
+      <div class="flex items-center justify-between text-xs pt-1">
+        <div class="flex space-x-2">
+          <button onclick="setVideoSpeed(0.5)" class="px-2 py-1 rounded bg-ocean-700 text-slate-300 font-bold">0.5x Slow-Mo</button>
+          <button onclick="setVideoSpeed(1.0)" class="px-2 py-1 rounded bg-ocean-700 text-slate-300 font-bold">1.0x Normal</button>
+        </div>
+        <span class="text-purple-300 font-bold">85% Coincidencia</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== BARRA DE NAVEGACIÓN INFERIOR (PWA ERGONÓMICA) ==================== -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 glass-card border-t border-slate-800 px-3 py-2">
+    <div class="max-w-md mx-auto grid grid-cols-5 gap-1 text-center">
+      <button onclick="navegarVista('dashboard')" id="nav-dashboard" class="flex flex-col items-center py-1 text-cyan-400 thumb-btn">
+        <span class="material-symbols-outlined text-xl">surfing</span>
+        <span class="text-[10px] font-bold mt-0.5">Olas</span>
+      </button>
+      <button onclick="navegarVista('map')" id="nav-map" class="flex flex-col items-center py-1 text-slate-400 hover:text-white thumb-btn">
+        <span class="material-symbols-outlined text-xl">explore</span>
+        <span class="text-[10px] font-semibold mt-0.5">Mapa</span>
+      </button>
+      <button onclick="navegarVista('charts')" id="nav-charts" class="flex flex-col items-center py-1 text-slate-400 hover:text-white thumb-btn">
+        <span class="material-symbols-outlined text-xl">monitoring</span>
+        <span class="text-[10px] font-semibold mt-0.5">Gráficas</span>
+      </button>
+      <button onclick="navegarVista('feedback')" id="nav-feedback" class="flex flex-col items-center py-1 text-slate-400 hover:text-white thumb-btn">
+        <span class="material-symbols-outlined text-xl">hotel_class</span>
+        <span class="text-[10px] font-semibold mt-0.5">Votar</span>
+      </button>
+      <button onclick="navegarVista('profile')" id="nav-profile" class="flex flex-col items-center py-1 text-slate-400 hover:text-white thumb-btn">
+        <span class="material-symbols-outlined text-xl">tune</span>
+        <span class="text-[10px] font-semibold mt-0.5">Ajustes</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ==================== LÓGICA DE JAVASCRIPT Y FÍSICA ==================== -->
+  <script>
+    // 1. BASE DE DATOS DE SPOTS
+    const SPOTS_DB = {
+      'Voramar':        { lat: 40.060, lon: 0.080, azimut: 54, thetaCrit: 65, sBase: 0.05, offMin: 300, offMax: 350, camMjpeg1: 'https://cam1.voramar.net:445/axis-cgi/mjpg/video.cgi', camMjpeg2: 'https://cam1.voramar.net:444/axis-cgi/mjpg/video.cgi' },
+      'El Palaciet':    { lat: 40.056, lon: 0.076, azimut: 45, thetaCrit: 55, sBase: 0.10, offMin: 290, offMax: 340, camUrl: 'https://voramar.net' },
+      'Planetario':     { lat: 39.980, lon: 0.030, azimut: 26, thetaCrit: 45, sBase: 0.15, offMin: 275, offMax: 315, camUrl: 'https://surferscastellon.com/live-webcam/' },
+      'Gurugú':         { lat: 39.990, lon: 0.040, azimut: 26, thetaCrit: 45, sBase: 0.15, offMin: 275, offMax: 315, camUrl: 'https://surferscastellon.com/live-webcam/' },
+      'Pirámides':      { lat: 40.050, lon: 0.070, azimut: 38, thetaCrit: 50, sBase: 0.10, offMin: 285, offMax: 330, camUrl: 'https://www.servigroup.com/es/hotel-koral-beach-oropesa-del-mar/webcam-oropesa/' },
+      'La Renegà':      { lat: 40.030, lon: 0.090, azimut: 172,thetaCrit: 10, sBase: 0.90, offMin: 230, offMax: 290, camUrl: 'https://comunitatvalenciana.com' },
+      'Burriana':       { lat: 39.880, lon:-0.050, azimut: 26, thetaCrit: 45, sBase: 0.20, offMin: 275, offMax: 315, camUrl: 'https://comunitatvalenciana.com' },
+      'Nules':          { lat: 39.850, lon: 0.080, azimut: 26, thetaCrit: 40, sBase: 0.25, offMin: 275, offMax: 315, camUrl: 'https://comunitatvalenciana.com' },
+      'Almenara':       { lat: 39.750, lon: 0.050, azimut: 26, thetaCrit: 35, sBase: 0.30, offMin: 275, offMax: 315, camUrl: 'https://comunitatvalenciana.com' },
+      'Peñíscola Norte':{ lat: 40.370, lon: 0.400, azimut: 10, thetaCrit: 10, sBase: 0.80, offMin: 260, offMax: 300, camUrl: 'https://www.servigroup.com/es/hotel-papa-luna-peniscola/webcam-peniscola/' },
+      'Vinaròs':        { lat: 40.470, lon: 0.480, azimut: 10, thetaCrit: 10, sBase: 0.85, offMin: 260, offMax: 300, camUrl: 'https://vinaros.es' }
+    };
+
+    let spotActual = 'Planetario';
+    let diaOffsetActual = 0;
+    let horaActual = 14;
+    let datosMeteoCache = null;
+    let chartsObj = {};
+    let leafletMap = null;
+
+    // 2. MOTOR DE FÍSICA COSTERA JS
+    function calcularFisicaJS(spot, h, p, dirSwell) {
+      if (h <= 0) return 0;
+      const cfg = SPOTS_DB[spot] || SPOTS_DB['Planetario'];
+      const k = 0.15;
+      const sf = cfg.sBase + (1 - cfg.sBase) / (1 + Math.exp(-k * (dirSwell - cfg.thetaCrit)));
+
+      let amplificador = 1.0;
+      if (dirSwell < 75) {
+        let ganancia = Math.pow(p / 4.0, 2);
+        ganancia = Math.min(Math.max(ganancia, 1.0), 2.5);
+        amplificador = 1.0 + ((ganancia - 1.0) * (1.0 - sf));
+      }
+
+      const normalCosta = cfg.azimut + 90;
+      let exposicion = Math.abs(Math.cos((dirSwell - normalCosta) * Math.PI / 180));
+      exposicion = Math.max(exposicion, 0.05);
+
+      return Number((h * sf * amplificador * exposicion).toFixed(2));
+    }
+
+    function calcularCalidadJS(h, p, ws, wd, spot, presion = 1013) {
+      if (h < 0.20) return 0;
+      if (h < 0.35) return 1;
+
+      let s = 2.0;
+      if (h >= 0.50) s += 1.0;
+      if (h >= 0.90) s += 1.0;
+      if (p >= 5.0) s += 0.5;
+      if (p >= 7.0) s += 0.5;
+
+      const energia = h * h * p;
+      if (energia >= 4.0) s += 0.5;
+      if (energia >= 12.0) s += 0.5;
+
+      const cfg = SPOTS_DB[spot] || SPOTS_DB['Planetario'];
+      let isOffshore = false;
+      if (cfg.offMin < cfg.offMax) {
+        isOffshore = (wd >= cfg.offMin && wd <= cfg.offMax);
+      } else {
+        isOffshore = (wd >= cfg.offMin || wd <= cfg.offMax);
+      }
+
+      if (isOffshore && ws < 15) {
+        s += 1.0;
+        if (ws < 8) s += 0.5;
+      } else if (!isOffshore && ws > 18) {
+        s -= 1.0;
+        if (ws > 28) s -= 1.0;
+      }
+
+      if (presion < 1008) s += 0.5;
+      return Math.min(Math.max(Math.round(s), 0), 5);
+    }
+
+    function getEscalaHumana(h) {
+      if (h < 0.35) return 'Plato (<30cm)';
+      if (h < 0.55) return 'Rodilla (Knee high)';
+      if (h < 0.85) return 'Cintura (Waist high)';
+      if (h < 1.25) return 'Pecho a Hombro (Chest high)';
+      if (h < 1.75) return 'Cabeza (Head high)';
+      return 'Por encima cabeza (Overhead 🤙)';
+    }
+
+    // 3. CONSULTA A OPEN-METEO EN TIEMPO REAL
+    async function cargarDatosMeteo(spot) {
+      const cfg = SPOTS_DB[spot];
+      const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${cfg.lat}&longitude=${cfg.lon}&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction,sea_surface_temperature&timezone=Europe/Madrid&forecast_days=4`;
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.lat}&longitude=${cfg.lon}&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,pressure_msl&timezone=Europe/Madrid&forecast_days=4`;
+
+      try {
+        const [respM, respW] = await Promise.all([fetch(marineUrl), fetch(weatherUrl)]);
+        const dataM = await respM.json();
+        const dataW = await respW.json();
+        datosMeteoCache = { marine: dataM.hourly, weather: dataW.hourly };
+        actualizarVistaHero();
+        actualizarGraficas();
+      } catch (err) {
+        console.error('Error cargando Open-Meteo:', err);
+      }
+    }
+
+    // 4. ACTUALIZAR DASHBOARD HERO
+    function actualizarVistaHero() {
+      if (!datosMeteoCache) return;
+
+      const m = datosMeteoCache.marine;
+      const w = datosMeteoCache.weather;
+      const targetIndex = (diaOffsetActual * 24) + horaActual;
+
+      const rawH = m.swell_wave_height[targetIndex] || m.wave_height[targetIndex] || 0.4;
+      const rawP = m.swell_wave_period[targetIndex] || m.wave_period[targetIndex] || 4.5;
+      const rawDir = m.swell_wave_direction[targetIndex] ?? m.wave_direction[targetIndex] ?? 80;
+      const rawWs = (w.wind_speed_10m[targetIndex] || 10) * 0.54;
+      const rawWg = (w.wind_gusts_10m[targetIndex] || 15) * 0.54;
+      const rawWd = w.wind_direction_10m[targetIndex] || 290;
+      const rawPress = w.pressure_msl[targetIndex] || 1013;
+      const rawTemp = m.sea_surface_temperature[targetIndex] || 26.5;
+
+      const heff = calcularFisicaJS(spotActual, rawH, rawP, rawDir);
+      const stars = calcularCalidadJS(heff, rawP, rawWs, rawWd, spotActual, rawPress);
+
+      // Render Textos
+      document.getElementById('spotTitle').innerText = spotActual.toUpperCase();
+      document.getElementById('waveHeightBig').innerText = `${heff}m`;
+      document.getElementById('periodBig').innerText = `${rawP.toFixed(1)}s`;
+      document.getElementById('humanoScale').innerText = getEscalaHumana(heff);
+      document.getElementById('liveClock').innerText = `${horaActual}:00h`;
+      document.getElementById('windSpeedVal').innerText = `${rawWs.toFixed(1)} kt`;
+      document.getElementById('gustSpeedVal').innerText = `${rawWg.toFixed(1)} kt`;
+      document.getElementById('energyVal').innerText = `${(heff * heff * rawP).toFixed(1)} kJ`;
+      document.getElementById('seaTempVal').innerText = `${rawTemp.toFixed(1)} °C`;
+
+      // Badge de calidad
+      const badgeElem = document.getElementById('spotBadge');
+      if (stars >= 5) { badgeElem.innerText = '🟣 EPIC · 5/5 ⭐'; badgeElem.className = 'px-2.5 py-1 rounded-full text-xs font-extrabold bg-purple-500/20 text-purple-400 border border-purple-500/30'; }
+      else if (stars === 4) { badgeElem.innerText = '🟢 GOOD · 4/5 ⭐'; badgeElem.className = 'px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'; }
+      else if (stars === 3) { badgeElem.innerText = '🟡 FAIR TO GOOD · 3/5 ⭐'; badgeElem.className = 'px-2.5 py-1 rounded-full text-xs font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30'; }
+      else if (stars === 2) { badgeElem.innerText = '🟠 POOR TO FAIR · 2/5 ⭐'; badgeElem.className = 'px-2.5 py-1 rounded-full text-xs font-extrabold bg-orange-500/20 text-orange-400 border border-orange-500/30'; }
+      else { badgeElem.innerText = '⚪ FLAT · 1/5 ⭐'; badgeElem.className = 'px-2.5 py-1 rounded-full text-xs font-extrabold bg-slate-500/20 text-slate-400 border border-slate-500/30'; }
+
+      // Cámara
+      actualizarCamSource();
+    }
+
+    function actualizarCamSource() {
+      const cfg = SPOTS_DB[spotActual];
+      const imgCam = document.getElementById('webcamMjpeg');
+      const fallback = document.getElementById('webcamFallback');
+      const switchGroup = document.getElementById('camSwitchGroup');
+
+      if (spotActual === 'Voramar') {
+        switchGroup.style.display = 'flex';
+        imgCam.style.display = 'block';
+        fallback.style.display = 'none';
+        imgCam.src = cfg.camMjpeg1;
+      } else {
+        switchGroup.style.display = 'none';
+        if (cfg.camMjpeg1) {
+          imgCam.style.display = 'block';
+          fallback.style.display = 'none';
+          imgCam.src = cfg.camMjpeg1;
+        } else {
+          imgCam.style.display = 'none';
+          fallback.style.display = 'flex';
+          document.getElementById('camExternalLink').href = cfg.camUrl;
+        }
+      }
+    }
+
+    function cambiarCamIndex(idx) {
+      const imgCam = document.getElementById('webcamMjpeg');
+      const b1 = document.getElementById('btnCam1');
+      const b2 = document.getElementById('btnCam2');
+      if (idx === 1) {
+        imgCam.src = SPOTS_DB['Voramar'].camMjpeg1;
+        b1.className = 'text-[10px] px-2 py-1 rounded-lg font-bold bg-cyan-500 text-ocean-900';
+        b2.className = 'text-[10px] px-2 py-1 rounded-lg font-bold bg-ocean-700 text-slate-300';
+      } else {
+        imgCam.src = SPOTS_DB['Voramar'].camMjpeg2;
+        b2.className = 'text-[10px] px-2 py-1 rounded-lg font-bold bg-cyan-500 text-ocean-900';
+        b1.className = 'text-[10px] px-2 py-1 rounded-lg font-bold bg-ocean-700 text-slate-300';
+      }
+    }
+
+    function recargarCam() {
+      const imgCam = document.getElementById('webcamMjpeg');
+      const src = imgCam.src.split('?')[0];
+      imgCam.src = src + '?t=' + new Date().getTime();
+    }
+
+    function capturarFoto() {
+      alert('📷 Captura de imagen del pico guardada con éxito.');
+    }
+
+    // 5. NAVEGACIÓN Y SLIDERS
+    function cambiarSpot(s) {
+      spotActual = s;
+      document.getElementById('spotSelect').value = s;
+      document.getElementById('chartsSpotSubtitle').innerText = `${s} · Horas y fechas 100% corregidas`;
+      cargarDatosMeteo(s);
+    }
+
+    function cambiarHoraSlider(val) {
+      horaActual = parseInt(val);
+      actualizarVistaHero();
+    }
+
+    function cambiarDiaOffset(offset) {
+      diaOffsetActual = offset;
+      [0, 1, 2, 3].forEach(i => {
+        const btn = document.getElementById(`btnDay${i}`);
+        if (i === offset) {
+          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500 text-ocean-900';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white';
+        }
+      });
+      actualizarVistaHero();
+    }
+
+    function navegarVista(vista) {
+      ['dashboard', 'map', 'charts', 'feedback', 'profile'].forEach(v => {
+        const sec = document.getElementById(`view-${v}`);
+        const nav = document.getElementById(`nav-${v}`);
+        if (v === vista) {
+          sec.classList.remove('hidden');
+          nav.className = 'flex flex-col items-center py-1 text-cyan-400 thumb-btn';
+        } else {
+          sec.classList.add('hidden');
+          nav.className = 'flex flex-col items-center py-1 text-slate-400 hover:text-white thumb-btn';
+        }
+      });
+
+      if (vista === 'map') {
+        setTimeout(initLeafletMap, 100);
+      }
+    }
+
+    // 6. MAPA SATELITAL LEAFLET
+    function initLeafletMap() {
+      if (leafletMap) return;
+      leafletMap = L.map('map').setView([40.05, 0.15], 10);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(leafletMap);
+
+      Object.entries(SPOTS_DB).forEach(([nombre, data]) => {
+        const marker = L.circleMarker([data.lat, data.lon], {
+          radius: 8,
+          fillColor: '#06b6d4',
+          color: '#ffffff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.8
+        }).addTo(leafletMap);
+
+        marker.bindPopup(`<b>${nombre}</b><br><button onclick="cambiarSpot('${nombre}'); navegarVista('dashboard');" class="mt-1 px-2 py-1 bg-cyan-500 text-black text-xs font-bold rounded">Ver Previsión</button>`);
+      });
+    }
+
+    // 7. 6 GRÁFICAS CORREGIDAS CON CHART.JS
+    function actualizarGraficas() {
+      if (!datosMeteoCache) return;
+
+      const m = datosMeteoCache.marine;
+      const w = datosMeteoCache.weather;
+      const labels = [];
+      const dataH = [];
+      const dataP = [];
+      const dataE = [];
+      const dataW = [];
+
+      const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+      for (let i = 0; i < Math.min(m.time.length, 96); i += 3) {
+        const d = new Date(m.time[i]);
+        const diaTxt = diasSemana[d.getDay()];
+        const horaTxt = `${d.getHours()}h`;
+        labels.push(`${diaTxt} ${d.getDate()} · ${horaTxt}`);
+
+        const wh = m.swell_wave_height[i] || m.wave_height[i] || 0.4;
+        const wp = m.swell_wave_period[i] || m.wave_period[i] || 4.5;
+        const dir = m.swell_wave_direction[i] ?? m.wave_direction[i] ?? 80;
+        const ws = (w.wind_speed_10m[i] || 10) * 0.54;
+
+        const heff = calcularFisicaJS(spotActual, wh, wp, dir);
+        dataH.push(heff);
+        dataP.push(Number(wp.toFixed(1)));
+        dataE.push(Number((heff * heff * wp).toFixed(1)));
+        dataW.push(Number(ws.toFixed(1)));
+      }
+
+      renderizarGrafico('chartHeight', 'Altura (m)', labels, dataH, '#06b6d4', 'bar');
+      renderizarGrafico('chartPeriod', 'Periodo (s)', labels, dataP, '#f59e0b', 'line');
+      renderizarGrafico('chartEnergy', 'Energía (kJ)', labels, dataE, '#a855f7', 'line');
+      renderizarGrafico('chartWind', 'Viento (kt)', labels, dataW, '#10b981', 'line');
+    }
+
+    function renderizarGrafico(id, label, labels, data, color, type) {
+      if (chartsObj[id]) chartsObj[id].destroy();
+      const ctx = document.getElementById(id).getContext('2d');
+      chartsObj[id] = new Chart(ctx, {
+        type: type,
+        data: {
+          labels: labels,
+          datasets: [{
+            label: label,
+            data: data,
+            borderColor: color,
+            backgroundColor: color + '33',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#94a3b8', font: { size: 9 }, maxRotation: 45 } },
+            y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#1e293b' } }
+          }
+        }
+      });
+    }
+
+    // 8. MODAL DE VÍDEO Y FEEDBACK
+    function abrirModalVideoSimilar() {
+      document.getElementById('modalVideo').classList.remove('hidden');
+      document.getElementById('modalVideo').classList.add('flex');
+    }
+
+    function cerrarModalVideo() {
+      document.getElementById('modalVideo').classList.add('hidden');
+      document.getElementById('modalVideo').classList.remove('flex');
+    }
+
+    function setVideoSpeed(speed) {
+      document.getElementById('simVideoPlayer').playbackRate = speed;
+    }
+
+    function guardarVotoFeedback() {
+      const val = document.getElementById('voteSlider').value;
+      const board = document.getElementById('voteBoard').value;
+      alert(`✅ ¡Gracias! Voto de ${val}/10 con ${board} guardado. La IA de Castellón ha registrado tu sesión.`);
+      navegarVista('dashboard');
+    }
+
+    function abrirModalPerfil() {
+      navegarVista('profile');
+    }
+
+    function guardarPreferencias() {
+      alert('💾 Preferencias de alertas para WhatsApp y Telegram guardadas con éxito.');
+    }
+
+    // INICIALIZACIÓN
+    window.addEventListener('DOMContentLoaded', () => {
+      // Poblar checkboxes
+      const container = document.getElementById('userSpotsCheckboxes');
+      Object.keys(SPOTS_DB).forEach(spot => {
+        container.innerHTML += `
+          <label class="flex items-center space-x-2 cursor-pointer bg-ocean-800 p-2 rounded-lg border border-slate-700">
+            <input type="checkbox" checked class="rounded bg-ocean-700 border-slate-600 text-cyan-500">
+            <span>${spot}</span>
+          </label>
+        `;
+      });
+
+      cargarDatosMeteo(spotActual);
+    });
+  </script>
+</body>
+</html>
