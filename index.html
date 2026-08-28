@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Surfline Castellón v2.0 AI · Previsión Local</title>
+  <title>Surfline Castellón v2.0 AI · Surf Reports</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -12,8 +12,8 @@
       theme: { 
         extend: { 
           colors: { 
-            ocean: { 950: '#040812', 900: '#060d1a', 800: '#0e1726', 700: '#16233b' },
-            surf: { good: '#10b981', fair: '#f59e0b', poor: '#ef4444', flat: '#64748b' }
+            ocean: { 950: '#030712', 900: '#0b1120', 800: '#111827', 700: '#1f2937' },
+            surf: { epic: '#8b5cf6', good: '#10b981', fair: '#f59e0b', poor: '#3b82f6', flat: '#64748b' }
           } 
         } 
       } 
@@ -21,334 +21,324 @@
   </script>
 
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #040812; -webkit-tap-highlight-color: transparent; }
-    .glass-card { background: rgba(14, 23, 38, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
-    .timeline-scrubber::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #38bdf8; cursor: pointer; box-shadow: 0 0 12px rgba(56, 189, 248, 0.5); border: 2px solid #fff; }
-    #map { height: 400px; z-index: 10; }
-    .spot-tooltip { background: #0e1726 !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; font-weight: 700; font-size: 11px; border-radius: 8px; padding: 6px 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
-    .leaflet-tooltip-top:before { border-top-color: #0e1726 !important; }
-    /* Toggle Switch Surfline Style */
-    .toggle-checkbox:checked { right: 0; border-color: #38bdf8; }
-    .toggle-checkbox:checked + .toggle-label { background-color: #38bdf8; }
+    body { font-family: 'Inter', sans-serif; background-color: #030712; -webkit-tap-highlight-color: transparent; }
+    .glass-panel { background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
+    
+    /* Hide scrollbar for horizontal carousels but keep functionality */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    #map { height: 350px; z-index: 10; }
+    .spot-tooltip { background: #111827 !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; font-weight: 700; font-size: 11px; border-radius: 6px; padding: 4px 6px; }
+    .leaflet-tooltip-top:before { border-top-color: #111827 !important; }
+    
+    .auth-tab-active { border-bottom: 2px solid #38bdf8; color: #fff; font-weight: 700; }
+    .auth-tab-inactive { border-bottom: 2px solid transparent; color: #6b7280; font-weight: 600; }
   </style>
 </head>
-<body class="text-slate-200 min-h-screen pb-24 selection:bg-cyan-500 selection:text-white">
+<body class="text-slate-200 min-h-screen pb-10 selection:bg-blue-500 selection:text-white">
 
-  <!-- ==================== PANTALLA DE LOGIN ==================== -->
-  <div id="loginOverlay" class="fixed inset-0 z-50 bg-ocean-950/95 backdrop-blur-2xl flex items-center justify-center p-4">
-    <div class="glass-card max-w-sm w-full rounded-[2rem] p-8 text-center space-y-6 shadow-2xl">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-cyan-500/10 mb-2">
-        <span class="material-symbols-outlined text-4xl text-cyan-400">water_lux</span>
+  <!-- ==================== MODAL DE LOGIN / REGISTRO ==================== -->
+  <div id="loginOverlay" class="fixed inset-0 z-50 bg-ocean-950/95 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="bg-ocean-900 border border-white/10 max-w-sm w-full rounded-2xl p-8 space-y-6 shadow-2xl">
+      <div class="text-center">
+        <h2 class="text-3xl font-black text-white tracking-tighter">SURFLINE<span class="text-blue-500">CS</span></h2>
+        <p class="text-xs text-slate-400 font-medium mt-1">Plataforma de Surf IA Exclusiva</p>
       </div>
-      <div>
-        <h2 class="text-2xl font-black text-white tracking-tight">Surfline CS</h2>
-        <p class="text-xs text-slate-400 mt-2 font-medium">Acceso restringido a miembros. Identifícate para ver la previsión IA.</p>
+
+      <div class="flex border-b border-white/10 mb-4">
+        <button onclick="setAuthMode('login')" id="tabLogin" class="w-1/2 pb-2 text-sm auth-tab-active">Iniciar Sesión</button>
+        <button onclick="setAuthMode('register')" id="tabReg" class="w-1/2 pb-2 text-sm auth-tab-inactive">Crear Cuenta</button>
       </div>
-      <div class="space-y-3 pt-2">
-        <input type="email" id="loginEmail" placeholder="Correo electrónico" class="w-full bg-ocean-900/50 text-sm text-white px-4 py-3.5 rounded-2xl border border-white/5 outline-none focus:border-cyan-400 transition-colors">
-        <input type="password" id="loginPass" placeholder="Contraseña" class="w-full bg-ocean-900/50 text-sm text-white px-4 py-3.5 rounded-2xl border border-white/5 outline-none focus:border-cyan-400 transition-colors">
-        <button onclick="hacerLogin()" class="w-full py-3.5 mt-2 rounded-2xl bg-cyan-500 hover:bg-cyan-400 font-extrabold text-sm text-ocean-950 transition-transform active:scale-95 shadow-[0_0_20px_rgba(6,182,212,0.3)]">
-          Entrar a la Previsión
-        </button>
+
+      <div id="formLogin" class="space-y-4">
+        <input type="email" id="lEmail" placeholder="Correo electrónico" class="w-full bg-ocean-950 text-sm text-white px-4 py-3.5 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
+        <input type="password" id="lPass" placeholder="Contraseña" class="w-full bg-ocean-950 text-sm text-white px-4 py-3.5 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
+        <button onclick="hacerLogin()" class="w-full py-3.5 mt-2 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm text-white transition-colors">Entrar</button>
+      </div>
+
+      <div id="formReg" class="space-y-3 hidden">
+        <input type="text" id="rUser" placeholder="Tu Nombre (Ej: Jordi)" class="w-full bg-ocean-950 text-sm text-white px-4 py-3 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
+        <input type="tel" id="rPhone" placeholder="Teléfono Móvil (+34...)" class="w-full bg-ocean-950 text-sm text-white px-4 py-3 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
+        <input type="email" id="rEmail" placeholder="Correo electrónico" class="w-full bg-ocean-950 text-sm text-white px-4 py-3 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
+        <input type="password" id="rPass" placeholder="Contraseña segura" class="w-full bg-ocean-950 text-sm text-white px-4 py-3 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
+        <button onclick="hacerRegistro()" class="w-full py-3.5 mt-2 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm text-white transition-colors">Crear Mi Cuenta</button>
       </div>
     </div>
   </div>
 
-  <!-- ==================== BARRA SUPERIOR ==================== -->
-  <header class="sticky top-0 z-40 bg-ocean-950/80 backdrop-blur-xl border-b border-white/5 px-4 py-3.5">
-    <div class="max-w-6xl mx-auto flex items-center justify-between">
-      <div class="flex items-center space-x-2.5">
-        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-          <span class="material-symbols-outlined text-white text-lg">surfing</span>
+  <!-- ==================== MODAL DE PERFIL / AJUSTES ==================== -->
+  <div id="profileModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-ocean-900 border border-white/10 max-w-md w-full rounded-2xl p-6 shadow-2xl relative">
+      <button onclick="toggleProfileModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      <h2 class="text-xl font-black text-white mb-6">Ajustes de Cuenta</h2>
+      
+      <div class="space-y-5">
+        <div>
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Usuario Conectado</label>
+          <p id="profileEmail" class="text-sm font-semibold text-white mt-1">Cargando...</p>
         </div>
-        <h1 class="font-extrabold text-base text-white tracking-tight">Surfline<span class="text-cyan-400 ml-1">AI</span></h1>
+        
+        <div class="pt-4 border-t border-white/10">
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Solicitar Alertas Automáticas</label>
+          <p class="text-xs text-slate-400 mb-3">Si deseas recibir los partes por WhatsApp, avisa al administrador del sistema.</p>
+          <button onclick="alert('Funcionalidad en desarrollo. Pídeselo a Jordi directamente por WhatsApp.')" class="w-full py-3 rounded-xl bg-ocean-800 border border-white/10 font-semibold text-sm text-white hover:bg-ocean-700 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[18px] mr-2 text-green-400">forum</span> Solicitar Alertas por WhatsApp
+          </button>
+        </div>
+
+        <div class="pt-4 border-t border-white/10">
+          <button onclick="cerrarSesion()" class="w-full py-3 rounded-xl bg-red-500/10 border border-red-500/20 font-bold text-sm text-red-500 hover:bg-red-500/20">
+            Cerrar Sesión
+          </button>
+        </div>
       </div>
-      <div class="flex items-center space-x-3">
-        <select id="spotSelect" onchange="cambiarSpot(this.value)" class="bg-ocean-800 text-white font-semibold text-xs py-2 px-3 rounded-xl border border-white/5 outline-none cursor-pointer">
-          <option value="Voramar">Voramar (Benicàssim)</option>
-          <option value="El Palaciet">El Palaciet (Benicàssim)</option>
-          <option value="Planetario" selected>Planetario (Grao CS)</option>
-          <option value="Gurugú">Gurugú (Castellón)</option>
-          <option value="Pirámides">Pirámides (Heliópolis)</option>
-          <option value="La Renegà">La Renegà (Oropesa)</option>
-          <option value="Peñíscola Norte">Peñíscola Norte</option>
-        </select>
-        <button onclick="cerrarSesion()" class="text-slate-400 hover:text-white transition-colors">
-          <span class="material-symbols-outlined text-[22px]">logout</span>
-        </button>
+    </div>
+  </div>
+
+  <!-- ==================== HEADER (NAVEGACIÓN SURFLINE) ==================== -->
+  <header class="bg-ocean-900 border-b border-white/5 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      <!-- Logo -->
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-black text-lg">S</div>
+        <h1 class="font-black text-lg text-white tracking-tight hidden sm:block">SURFLINE<span class="text-blue-500">CS</span></h1>
       </div>
+      
+      <!-- Selector de Spot Central -->
+      <div class="flex-1 max-w-md mx-4">
+        <div class="relative">
+          <span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-[18px]">search</span>
+          <select id="spotSelect" onchange="cambiarSpot(this.value)" class="w-full bg-ocean-950 text-white font-semibold text-sm py-2.5 pl-10 pr-4 rounded-full border border-white/10 outline-none cursor-pointer appearance-none">
+            <option value="Voramar">Voramar</option>
+            <option value="El Palaciet">El Palaciet</option>
+            <option value="Planetario" selected>Planetario</option>
+            <option value="Gurugú">Gurugú</option>
+            <option value="Pirámides">Pirámides</option>
+            <option value="La Renegà">La Renegà</option>
+            <option value="Peñíscola Norte">Peñíscola</option>
+          </select>
+          <span class="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 text-[18px] pointer-events-none">expand_more</span>
+        </div>
+      </div>
+
+      <!-- Perfil Icono -->
+      <button onclick="toggleProfileModal()" class="w-9 h-9 rounded-full bg-ocean-800 border border-white/10 flex items-center justify-center hover:bg-ocean-700 transition-colors">
+        <span class="material-symbols-outlined text-slate-300 text-[20px]">person</span>
+      </button>
     </div>
   </header>
 
-  <!-- ==================== CONTENIDO PRINCIPAL ==================== -->
-  <main class="max-w-6xl mx-auto px-4 py-5 space-y-6">
-
-    <!-- SECCIÓN 1: VISTA DASHBOARD -->
-    <section id="view-dashboard" class="space-y-5">
+  <!-- ==================== CONTENIDO FLUIDO (SCROLL) ==================== -->
+  <main class="max-w-7xl mx-auto md:px-4 pb-20">
+    
+    <!-- 1. ZONA CÁMARA HERO -->
+    <section id="camera-section" class="w-full bg-black md:rounded-b-2xl overflow-hidden relative border-b md:border border-white/5 aspect-video md:aspect-[21/9] lg:aspect-[3/1] flex items-center justify-center shadow-2xl">
+      <!-- Switch de cámara oculto por defecto -->
+      <div id="camSwitchGroup" class="absolute top-4 left-4 z-10 hidden space-x-2">
+        <button onclick="cambiarCamIndex(1)" class="px-3 py-1 bg-black/60 backdrop-blur border border-white/20 rounded text-xs font-bold text-white hover:bg-white/20">CAM 1</button>
+        <button onclick="cambiarCamIndex(2)" class="px-3 py-1 bg-black/60 backdrop-blur border border-white/20 rounded text-xs font-bold text-white hover:bg-white/20">CAM 2</button>
+      </div>
       
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Indicador Live -->
+      <div class="absolute top-4 right-4 z-10 flex items-center space-x-1.5 bg-red-600/90 backdrop-blur px-2.5 py-1 rounded text-[10px] font-black tracking-wider text-white">
+        <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span></span>
+        <span>LIVE</span>
+      </div>
+
+      <img id="webcamMjpeg" src="" class="absolute inset-0 w-full h-full object-cover hidden" />
+      <iframe id="webcamIframe" src="" class="absolute inset-0 w-full h-full border-0 hidden" allowfullscreen></iframe>
+      
+      <div id="webcamFallback" class="hidden absolute inset-0 flex-col items-center justify-center p-6 text-center">
+        <span class="material-symbols-outlined text-4xl text-slate-500 mb-2">videocam_off</span>
+        <p class="text-sm font-semibold text-slate-400">Stream no disponible</p>
+      </div>
+    </section>
+
+    <!-- 2. SPOT REPORT (Métricas Principales) -->
+    <section class="px-4 py-6 md:py-8 flex flex-col md:flex-row md:items-start justify-between border-b border-white/5">
+      <!-- Izquierda: Altura y Etiqueta -->
+      <div class="flex-1">
+        <h2 id="spotTitle" class="text-3xl md:text-4xl font-black text-white tracking-tight uppercase mb-1">Cargando...</h2>
+        <p class="text-sm font-medium text-slate-400 mb-4">Reporte Actual · Calculado por Física AI</p>
         
-        <!-- ESTADO Y MÉTRICAS HERO -->
-        <div class="lg:col-span-6 glass-card rounded-3xl p-6 relative overflow-hidden">
-          <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 blur-3xl rounded-full pointer-events-none"></div>
-          
-          <div class="flex items-center justify-between">
-            <span id="spotBadge" class="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider">Cargando...</span>
-            <span id="liveClock" class="text-xs font-bold text-slate-400">--:--h</span>
+        <div class="flex items-center space-x-4">
+          <div id="spotBadge" class="px-4 py-1.5 rounded bg-surf-flat text-white font-black text-sm uppercase tracking-wide">FLAT</div>
+          <div class="flex items-baseline space-x-1">
+            <span id="waveHeightBig" class="text-5xl md:text-6xl font-black text-white tracking-tighter">-</span>
+            <span class="text-xl font-bold text-slate-500">m</span>
           </div>
-          
-          <div class="mt-4">
-            <h2 id="spotTitle" class="text-3xl font-black text-white tracking-tight">Cargando...</h2>
-            <p id="humanoScale" class="text-sm font-medium text-cyan-400 mt-0.5">Analizando condiciones</p>
-          </div>
-
-          <div class="flex items-baseline space-x-3 mt-4 mb-6">
-            <span id="waveHeightBig" class="text-6xl font-black text-white tracking-tighter">-</span>
-            <span class="text-2xl font-bold text-slate-500">m</span>
-            <span id="periodBig" class="text-2xl font-bold text-white ml-2">-</span>
-            <span class="text-sm font-semibold text-slate-500">s</span>
-          </div>
-
-          <div class="grid grid-cols-4 gap-3 border-t border-white/5 pt-5">
-            <div>
-              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Viento</p>
-              <p id="windSpeedVal" class="text-sm font-black text-white mt-1">-</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Swell</p>
-              <p id="dirSwellText" class="text-sm font-black text-white mt-1 flex items-center"><span class="material-symbols-outlined text-[14px] mr-1 text-cyan-400">explore</span>-</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Energía</p>
-              <p id="energyVal" class="text-sm font-black text-white mt-1">-</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Agua</p>
-              <p id="seaTempVal" class="text-sm font-black text-white mt-1">-</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- REPRODUCTOR CÁMARAS INTEGRADO -->
-        <div class="lg:col-span-6 glass-card rounded-3xl p-5 flex flex-col">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center space-x-2">
-              <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span></span>
-              <span class="text-xs font-bold text-white tracking-wider">LIVE CAM</span>
-            </div>
-            <div id="camSwitchGroup" class="hidden space-x-1.5 bg-ocean-900 p-1 rounded-lg border border-white/5">
-              <button onclick="cambiarCamIndex(1)" class="text-[10px] px-3 py-1 rounded-md font-bold bg-slate-700 text-white">1</button>
-              <button onclick="cambiarCamIndex(2)" class="text-[10px] px-3 py-1 rounded-md font-bold text-slate-400 hover:text-white">2</button>
-            </div>
-          </div>
-
-          <div class="relative w-full flex-grow min-h-[220px] bg-ocean-950 rounded-2xl overflow-hidden border border-white/5">
-            <img id="webcamMjpeg" src="" class="absolute inset-0 w-full h-full object-cover hidden" />
-            <iframe id="webcamIframe" src="" class="absolute inset-0 w-full h-full border-0 hidden" allowfullscreen></iframe>
-            
-            <div id="webcamFallback" class="hidden absolute inset-0 flex-col items-center justify-center p-6 text-center">
-              <div class="w-12 h-12 rounded-full bg-ocean-800 flex items-center justify-center mb-3">
-                <span class="material-symbols-outlined text-slate-400">videocam_off</span>
-              </div>
-              <p class="text-xs text-slate-400 font-medium">Stream bloqueado por el hotel.</p>
-              <a id="camExternalLink" href="#" target="_blank" class="mt-3 px-4 py-2 bg-ocean-800 hover:bg-ocean-700 rounded-xl text-xs font-bold text-white transition-colors border border-white/5">Abrir web original ↗</a>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- LÍNEA DE TIEMPO -->
-      <div class="glass-card rounded-3xl p-5">
-        <div class="flex items-center justify-between mb-4">
-          <span class="text-xs font-black uppercase tracking-wider text-slate-400">Evolución Diaria</span>
-          <div class="flex space-x-1 bg-ocean-900 p-1 rounded-xl border border-white/5">
-            <button onclick="cambiarDiaOffset(0)" id="btnDay0" class="px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-700 text-white">HOY</button>
-            <button onclick="cambiarDiaOffset(1)" id="btnDay1" class="px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400">MAÑ</button>
-            <button onclick="cambiarDiaOffset(2)" id="btnDay2" class="px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400">+2</button>
-            <button onclick="cambiarDiaOffset(3)" id="btnDay3" class="px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400">+3</button>
-          </div>
-        </div>
-        <input type="range" id="hourSlider" min="7" max="20" value="14" step="1" oninput="cambiarHoraSlider(this.value)" class="w-full h-1.5 bg-ocean-800 rounded-full appearance-none cursor-pointer timeline-scrubber">
-        <div class="flex justify-between text-[10px] font-bold text-slate-500 mt-3 px-1">
-          <span>07:00</span><span>10:00</span><span class="text-cyan-400">14:00</span><span>17:00</span><span>20:00</span>
         </div>
       </div>
 
-      <!-- DESGLOSE RÁPIDO VISUAL 4 DÍAS -->
+      <!-- Derecha: Datos Secundarios Grid -->
+      <div class="grid grid-cols-2 gap-x-8 gap-y-4 mt-6 md:mt-0 w-full md:w-auto">
+        <div>
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Swell Primario</p>
+          <div class="flex items-baseline space-x-2">
+            <span id="periodBig" class="text-xl font-black text-white">-s</span>
+            <span id="dirSwellText" class="text-sm font-bold text-slate-400 flex items-center"><span class="material-symbols-outlined text-[14px] mr-0.5 text-blue-400">north_east</span>-</span>
+          </div>
+        </div>
+        <div>
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Viento Actual</p>
+          <div class="flex items-baseline space-x-2">
+            <span id="windSpeedVal" class="text-xl font-black text-white">- kt</span>
+          </div>
+        </div>
+        <div>
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Energía Mar</p>
+          <span id="energyVal" class="text-xl font-black text-amber-400">- kJ</span>
+        </div>
+        <div>
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Temp. Agua</p>
+          <span id="seaTempVal" class="text-xl font-black text-cyan-400">- °C</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. PREVISIÓN 4 DÍAS (Mini Cajas) -->
+    <section class="px-4 py-6 border-b border-white/5">
+      <h3 class="text-sm font-bold text-white mb-4 flex items-center">
+        <span class="material-symbols-outlined mr-2 text-slate-400">calendar_view_week</span> Evolución de la semana
+      </h3>
       <div class="grid grid-cols-4 gap-3" id="miniForecastGrid">
          <!-- Rellenado por JS -->
       </div>
-
     </section>
 
-    <!-- SECCIÓN 2: MAPA -->
-    <section id="view-map" class="hidden">
-      <div class="glass-card rounded-3xl p-1 overflow-hidden">
-        <div id="map" class="w-full h-[60vh] rounded-[22px] bg-ocean-950"></div>
+    <!-- 4. CARRUSEL HORARIO (Evolución de Hoy) -->
+    <section class="py-6 border-b border-white/5">
+      <div class="px-4 flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-white flex items-center">
+          <span class="material-symbols-outlined mr-2 text-slate-400">schedule</span> Previsión Detallada (Hoy)
+        </h3>
+        <span class="text-xs text-slate-500 font-semibold">Desliza <span class="material-symbols-outlined text-[12px] align-middle">arrow_forward</span></span>
       </div>
-    </section>
-
-    <!-- SECCIÓN 3: GRÁFICAS -->
-    <section id="view-charts" class="hidden space-y-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="glass-card rounded-3xl p-5"><canvas id="chartHeight" height="180"></canvas></div>
-        <div class="glass-card rounded-3xl p-5"><canvas id="chartPeriod" height="180"></canvas></div>
-      </div>
-    </section>
-
-    <!-- SECCIÓN 4: FEEDBACK -->
-    <section id="view-feedback" class="hidden">
-      <div class="glass-card rounded-3xl p-8 max-w-md mx-auto text-center space-y-6">
-        <div class="w-16 h-16 rounded-full bg-amber-500/10 mx-auto flex items-center justify-center">
-          <span class="material-symbols-outlined text-4xl text-amber-400">hotel_class</span>
-        </div>
-        <div>
-          <h2 class="text-xl font-black text-white">Vota tu sesión</h2>
-          <p class="text-xs text-slate-400 mt-1">Ayuda a la IA a aprender cómo rompe Castellón.</p>
-        </div>
-        <div class="space-y-5 text-left pt-2">
-          <div>
-            <label class="text-xs font-bold text-slate-400">Nota: <span id="voteNumDisplay" class="text-amber-400 font-black ml-1">8</span>/10</label>
-            <input type="range" id="voteSlider" min="1" max="10" value="8" oninput="document.getElementById('voteNumDisplay').innerText = this.value" class="w-full h-1.5 bg-ocean-800 rounded-full appearance-none timeline-scrubber mt-3">
-          </div>
-          <button class="w-full py-3.5 rounded-2xl bg-amber-500 font-extrabold text-sm text-ocean-950">Enviar a la IA</button>
+      
+      <!-- Contenedor Scroll Horizontal -->
+      <div class="w-full overflow-x-auto hide-scrollbar px-4 pb-2">
+        <div id="hourlyScroll" class="flex space-x-3 w-max">
+          <!-- Rellenado por JS -->
         </div>
       </div>
     </section>
 
-    <!-- SECCIÓN 5: PERFIL (SIN DATOS PERSONALES QUEMADOS) -->
-    <section id="view-profile" class="hidden">
-      <div class="glass-card rounded-3xl p-6 max-w-lg mx-auto space-y-6">
-        <div class="flex items-center space-x-3 mb-2">
-          <span class="material-symbols-outlined text-2xl text-cyan-400">tune</span>
-          <h2 class="text-lg font-black text-white tracking-tight">Ajustes & Alertas</h2>
+    <!-- 5. MAPA Y GRÁFICAS -->
+    <section class="px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <div class="space-y-4">
+        <h3 class="text-sm font-bold text-white flex items-center">
+          <span class="material-symbols-outlined mr-2 text-slate-400">map</span> Radar de Costa
+        </h3>
+        <div class="glass-panel p-1 rounded-2xl overflow-hidden border border-white/5">
+          <div id="map" class="w-full rounded-[14px] bg-ocean-950"></div>
         </div>
-
-        <!-- Toggles de Notificación -->
-        <div class="space-y-4">
-          <h3 class="text-[10px] font-black uppercase tracking-wider text-slate-500">Antelación</h3>
-          
-          <div class="flex items-center justify-between bg-ocean-900/50 p-4 rounded-2xl border border-white/5">
-            <div>
-              <p class="text-sm font-bold text-white">Preaviso 48h</p>
-              <p class="text-[10px] text-slate-400">Recibir avisos 2 días antes</p>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" checked class="sr-only peer">
-              <div class="w-11 h-6 bg-ocean-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
-            </label>
-          </div>
-        </div>
-
-        <!-- Canales de Alerta Seguros (Campos vacíos) -->
-        <div class="space-y-4">
-          <h3 class="text-[10px] font-black uppercase tracking-wider text-slate-500">Credenciales Privadas</h3>
-          
-          <div>
-            <label class="text-xs font-bold text-slate-400 ml-1">Teléfono (WhatsApp)</label>
-            <input type="tel" placeholder="+34 600 000 000" class="w-full mt-1 bg-ocean-900/50 text-sm text-white px-4 py-3 rounded-xl border border-white/5 outline-none focus:border-cyan-400">
-          </div>
-          
-          <div>
-            <label class="text-xs font-bold text-slate-400 ml-1">CallMeBot API Key</label>
-            <input type="password" placeholder="Tu API Key secreta" class="w-full mt-1 bg-ocean-900/50 text-sm text-white px-4 py-3 rounded-xl border border-white/5 outline-none focus:border-cyan-400">
-          </div>
-          
-          <div>
-            <label class="text-xs font-bold text-slate-400 ml-1">Telegram Chat ID</label>
-            <input type="text" placeholder="Ej: -100XXXXXXX" class="w-full mt-1 bg-ocean-900/50 text-sm text-white px-4 py-3 rounded-xl border border-white/5 outline-none focus:border-cyan-400">
-          </div>
-        </div>
-
-        <button class="w-full py-4 rounded-2xl bg-cyan-500 font-extrabold text-sm text-ocean-950 mt-4 shadow-[0_0_15px_rgba(6,182,212,0.2)]">Guardar Cambios</button>
+        <p class="text-[10px] text-slate-500 text-center font-medium">Nota: El mapa muestra los datos de la hora seleccionada arriba.</p>
       </div>
-    </section>
 
+      <div class="space-y-4">
+        <h3 class="text-sm font-bold text-white flex items-center">
+          <span class="material-symbols-outlined mr-2 text-slate-400">show_chart</span> Tendencia del Swell
+        </h3>
+        <div class="glass-panel p-4 rounded-2xl border border-white/5 space-y-4">
+          <canvas id="chartHeight" height="150"></canvas>
+          <div class="border-t border-white/5 pt-4">
+            <canvas id="chartPeriod" height="150"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </section>
   </main>
 
-  <!-- NAVEGACIÓN INFERIOR PWA (Estilo App) -->
-  <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 z-40 bg-ocean-950/90 backdrop-blur-xl border-t border-white/5 px-2 py-1.5 hidden pb-safe">
-    <div class="max-w-md mx-auto grid grid-cols-5 gap-1 text-center">
-      <button onclick="navegarVista('dashboard')" id="nav-dashboard" class="flex flex-col items-center py-2 text-cyan-400">
-        <span class="material-symbols-outlined text-[22px]">surfing</span>
-        <span class="text-[9px] font-bold mt-1">Olas</span>
-      </button>
-      <button onclick="navegarVista('map')" id="nav-map" class="flex flex-col items-center py-2 text-slate-500 hover:text-slate-300">
-        <span class="material-symbols-outlined text-[22px]">explore</span>
-        <span class="text-[9px] font-bold mt-1">Mapa</span>
-      </button>
-      <button onclick="navegarVista('charts')" id="nav-charts" class="flex flex-col items-center py-2 text-slate-500 hover:text-slate-300">
-        <span class="material-symbols-outlined text-[22px]">monitoring</span>
-        <span class="text-[9px] font-bold mt-1">Gráficos</span>
-      </button>
-      <button onclick="navegarVista('feedback')" id="nav-feedback" class="flex flex-col items-center py-2 text-slate-500 hover:text-slate-300">
-        <span class="material-symbols-outlined text-[22px]">hotel_class</span>
-        <span class="text-[9px] font-bold mt-1">Votar</span>
-      </button>
-      <button onclick="navegarVista('profile')" id="nav-profile" class="flex flex-col items-center py-2 text-slate-500 hover:text-slate-300">
-        <span class="material-symbols-outlined text-[22px]">person</span>
-        <span class="text-[9px] font-bold mt-1">Perfil</span>
-      </button>
-    </div>
-  </nav>
-
   <script>
-    // ==================== SUPABASE AUTH ====================
+    // ==================== LÓGICA UI Y LOGIN ====================
     const supabase = window.supabase.createClient('https://vovmemnpuneuzgssztdb.supabase.co', 'sb_publishable_Ymmr-4qnnfmrBdG5zrxjKw_qkil_ygE');
+
+    function setAuthMode(mode) {
+      if(mode === 'login') {
+        document.getElementById('formLogin').classList.remove('hidden');
+        document.getElementById('formReg').classList.add('hidden');
+        document.getElementById('tabLogin').className = "w-1/2 pb-2 text-sm auth-tab-active";
+        document.getElementById('tabReg').className = "w-1/2 pb-2 text-sm auth-tab-inactive";
+      } else {
+        document.getElementById('formLogin').classList.add('hidden');
+        document.getElementById('formReg').classList.remove('hidden');
+        document.getElementById('tabLogin').className = "w-1/2 pb-2 text-sm auth-tab-inactive";
+        document.getElementById('tabReg').className = "w-1/2 pb-2 text-sm auth-tab-active";
+      }
+    }
+
+    function toggleProfileModal() {
+      document.getElementById('profileModal').classList.toggle('hidden');
+    }
 
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         document.getElementById('loginOverlay').style.display = 'none';
-        document.getElementById('bottomNav').style.display = 'block';
+        const meta = session.user.user_metadata;
+        document.getElementById('profileEmail').innerText = meta.username ? `${meta.username} (${session.user.email})` : session.user.email;
         cargarDatosMeteo(spotActual);
+        initLeafletMap();
       } else {
         document.getElementById('loginOverlay').style.display = 'flex';
-        document.getElementById('bottomNav').style.display = 'none';
       }
     }
+
     async function hacerLogin() {
-      const e = document.getElementById('loginEmail').value, p = document.getElementById('loginPass').value;
+      const e = document.getElementById('lEmail').value, p = document.getElementById('lPass').value;
       const { error } = await supabase.auth.signInWithPassword({ email: e, password: p });
       if (error) alert('Error: ' + error.message); else checkAuth();
     }
-    async function cerrarSesion() { await supabase.auth.signOut(); checkAuth(); }
+
+    async function hacerRegistro() {
+      const u = document.getElementById('rUser').value, ph = document.getElementById('rPhone').value, e = document.getElementById('rEmail').value, p = document.getElementById('rPass').value;
+      const { error } = await supabase.auth.signUp({ email: e, password: p, options: { data: { username: u, phone: ph } } });
+      if (error) { alert('Error: ' + error.message); } 
+      else { alert('Registro exitoso. Inicia sesión.'); setAuthMode('login'); }
+    }
+
+    async function cerrarSesion() { await supabase.auth.signOut(); toggleProfileModal(); checkAuth(); }
 
     // ==================== BASE DE DATOS Y CÁMARAS ====================
     const SPOTS_DB = {
-      'Voramar':        { lat: 40.06, lon: 0.08, type: 'mjpeg', url1: 'https://cam1.voramar.net:445/axis-cgi/mjpg/video.cgi', azimut: 54, thetaCrit: 65, sBase: 0.05 },
+      'Voramar':        { lat: 40.06, lon: 0.08, type: 'mjpeg', url1: 'https://cam1.voramar.net:445/axis-cgi/mjpg/video.cgi', url2: 'https://cam1.voramar.net:444/axis-cgi/mjpg/video.cgi', azimut: 54, thetaCrit: 65, sBase: 0.05 },
       'Planetario':     { lat: 39.98, lon: 0.03, type: 'iframe', url1: 'https://g0.ipcamlive.com/player/player.php?alias=a6ojefpacdidwqce0', azimut: 26, thetaCrit: 45, sBase: 0.15 },
       'Gurugú':         { lat: 39.99, lon: 0.04, type: 'iframe', url1: 'https://g0.ipcamlive.com/player/player.php?alias=a6ojefpacdidwqce0', azimut: 26, thetaCrit: 45, sBase: 0.15 },
       'Pirámides':      { lat: 40.05, lon: 0.07, type: 'iframe', url1: 'https://www.servigroup.com/es/hotel-koral-beach-oropesa-del-mar/webcam-oropesa/', azimut: 38, thetaCrit: 50, sBase: 0.10 },
       'Peñíscola Norte':{ lat: 40.37, lon: 0.40, type: 'iframe', url1: 'https://www.servigroup.com/es/hotel-papa-luna-peniscola/webcam-peniscola/', azimut: 10, thetaCrit: 10, sBase: 0.80 },
-      'El Palaciet':    { lat: 40.05, lon: 0.07, type: 'none', url1: 'https://voramar.net', azimut: 45, thetaCrit: 55, sBase: 0.10 },
-      'La Renegà':      { lat: 40.03, lon: 0.09, type: 'none', url1: 'https://comunitatvalenciana.com', azimut: 172,thetaCrit: 10, sBase: 0.90 }
+      'El Palaciet':    { lat: 40.05, lon: 0.07, type: 'none', url1: '', azimut: 45, thetaCrit: 55, sBase: 0.10 },
+      'La Renegà':      { lat: 40.03, lon: 0.09, type: 'none', url1: '', azimut: 172,thetaCrit: 10, sBase: 0.90 }
     };
 
-    let spotActual = 'Planetario', diaOffsetActual = 0, horaActual = 14, datosMeteoCache = null, leafletMap = null, markersLayer = {};
+    let spotActual = 'Planetario', diaOffsetActual = 0, horaSeleccionada = new Date().getHours(), datosMeteoCache = null, leafletMap = null, markersLayer = {};
 
     function actualizarCamSource() {
       const cfg = SPOTS_DB[spotActual];
-      const mjpeg = document.getElementById('webcamMjpeg');
-      const iframe = document.getElementById('webcamIframe');
-      const fallback = document.getElementById('webcamFallback');
-      
-      [mjpeg, iframe, fallback].forEach(el => el.classList.add('hidden'));
+      const mjpeg = document.getElementById('webcamMjpeg'), iframe = document.getElementById('webcamIframe'), fallback = document.getElementById('webcamFallback'), swG = document.getElementById('camSwitchGroup');
+      [mjpeg, iframe, fallback, swG].forEach(el => el.classList.add('hidden'));
 
-      if (cfg.type === 'mjpeg') { mjpeg.src = cfg.url1; mjpeg.classList.remove('hidden'); }
+      if (cfg.type === 'mjpeg') { mjpeg.src = cfg.url1; mjpeg.classList.remove('hidden'); if(cfg.url2) swG.classList.remove('hidden'); }
       else if (cfg.type === 'iframe') { iframe.src = cfg.url1; iframe.classList.remove('hidden'); }
-      else { fallback.classList.remove('hidden'); document.getElementById('camExternalLink').href = cfg.url1; }
+      else { fallback.classList.remove('hidden'); }
+    }
+    
+    function cambiarCamIndex(idx) {
+      if (SPOTS_DB[spotActual].type === 'mjpeg') document.getElementById('webcamMjpeg').src = idx === 1 ? SPOTS_DB[spotActual].url1 : SPOTS_DB[spotActual].url2;
     }
 
-    // ==================== FÍSICA ====================
     function calcularFisicaJS(spot, h, p, dirSwell) {
       const cfg = SPOTS_DB[spot], k = 0.15;
       const sf = cfg.sBase + (1 - cfg.sBase) / (1 + Math.exp(-k * (dirSwell - cfg.thetaCrit)));
@@ -362,14 +352,17 @@
       try {
         const [respM, respW] = await Promise.all([fetch(marineUrl), fetch(weatherUrl)]);
         datosMeteoCache = { marine: (await respM.json()).hourly, weather: (await respW.json()).hourly };
-        actualizarVistaHero();
+        actualizarUI();
       } catch (e) {}
     }
 
-    function actualizarVistaHero() {
+    function actualizarUI() {
       if (!datosMeteoCache) return;
       const { marine: m, weather: w } = datosMeteoCache;
-      const idx = (diaOffsetActual * 24) + horaActual;
+      
+      // Limitar la hora seleccionada para que no rompa el index
+      if(horaSeleccionada < 0 || horaSeleccionada > 23) horaSeleccionada = 14;
+      const idx = (diaOffsetActual * 24) + horaSeleccionada;
 
       const heff = calcularFisicaJS(spotActual, m.swell_wave_height[idx]||m.wave_height[idx]||0.4, m.swell_wave_period[idx]||4.5, m.swell_wave_direction[idx]||80);
       const ws = (w.wind_speed_10m[idx] || 10) * 0.54;
@@ -377,18 +370,20 @@
       document.getElementById('spotTitle').innerText = spotActual.toUpperCase();
       document.getElementById('waveHeightBig').innerText = heff;
       document.getElementById('periodBig').innerText = (m.swell_wave_period[idx]||4.5).toFixed(1);
-      document.getElementById('dirSwellText').innerText = `${m.swell_wave_direction[idx]||80}°`;
+      document.getElementById('dirSwellText').innerHTML = `<span class="material-symbols-outlined text-[16px] mr-1 text-blue-400" style="transform: rotate(${m.swell_wave_direction[idx]||80}deg)">arrow_upward</span> ${m.swell_wave_direction[idx]||80}°`;
       document.getElementById('windSpeedVal').innerText = `${ws.toFixed(1)} kt`;
-      document.getElementById('liveClock').innerText = `${horaActual}:00h`;
+      document.getElementById('seaTempVal').innerText = `${(m.sea_surface_temperature[idx]||15).toFixed(1)} °C`;
+      document.getElementById('energyVal').innerText = `${(heff * heff * (m.swell_wave_period[idx]||4.5)).toFixed(1)} kJ`;
       
       const badge = document.getElementById('spotBadge');
-      if (heff >= 0.8) { badge.innerText = 'GOOD'; badge.className = 'px-3 py-1 rounded bg-surf-good text-ocean-950 font-black text-xs uppercase'; }
-      else if (heff >= 0.4) { badge.innerText = 'FAIR'; badge.className = 'px-3 py-1 rounded bg-surf-fair text-ocean-950 font-black text-xs uppercase'; }
-      else { badge.innerText = 'FLAT'; badge.className = 'px-3 py-1 rounded bg-surf-flat text-white font-black text-xs uppercase'; }
+      if (heff >= 0.8) { badge.innerText = 'GOOD'; badge.className = 'px-3 py-1 rounded bg-surf-good text-ocean-950 font-black text-xs uppercase tracking-wider'; }
+      else if (heff >= 0.4) { badge.innerText = 'FAIR'; badge.className = 'px-3 py-1 rounded bg-surf-fair text-ocean-950 font-black text-xs uppercase tracking-wider'; }
+      else if (heff >= 0.2) { badge.innerText = 'POOR'; badge.className = 'px-3 py-1 rounded bg-surf-poor text-white font-black text-xs uppercase tracking-wider'; }
+      else { badge.innerText = 'FLAT'; badge.className = 'px-3 py-1 rounded bg-surf-flat text-white font-black text-xs uppercase tracking-wider'; }
 
-      // Mini Grid
+      // Generar Cuadrícula 4 Días
       let htmlForecast = '';
-      const dias = ['HOY', 'MAÑ', '+2D', '+3D'];
+      const dias = ['HOY', 'MAÑANA', '+2 DÍAS', '+3 DÍAS'];
       for (let d = 0; d < 4; d++) {
         let maxH = 0, sumWs = 0, count = 0;
         for (let h = 7; h <= 20; h++) {
@@ -399,57 +394,97 @@
           sumWs += (w.wind_speed_10m[i] || 0) * 0.54; count++;
         }
         const avg = count > 0 ? (sumWs/count).toFixed(0) : 0;
-        const color = maxH >= 0.8 ? 'text-surf-good' : maxH >= 0.4 ? 'text-surf-fair' : 'text-slate-500';
+        let bColor = 'bg-surf-flat'; if(maxH>=0.8) bColor='bg-surf-good'; else if(maxH>=0.4) bColor='bg-surf-fair'; else if(maxH>=0.2) bColor='bg-surf-poor';
+        
         htmlForecast += `
-          <div class="glass-card rounded-2xl p-3 flex flex-col items-center justify-center border-t border-white/5">
-            <span class="text-[9px] font-bold text-slate-400 mb-1">${dias[d]}</span>
-            <span class="text-sm font-black ${color}">${maxH.toFixed(1)}m</span>
-            <span class="text-[10px] text-slate-500 font-semibold mt-0.5">${avg}kt</span>
+          <div onclick="cambiarDiaOffset(${d})" class="glass-panel rounded-xl p-3 flex flex-col items-center justify-center border ${diaOffsetActual === d ? 'border-white/40 shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'border-white/5 opacity-70'} cursor-pointer hover:opacity-100 transition-all">
+            <span class="text-[9px] font-bold text-slate-400 mb-2 uppercase">${dias[d]}</span>
+            <div class="px-2 py-0.5 rounded text-[11px] font-black text-white ${bColor} mb-1.5">${maxH.toFixed(1)}m</div>
+            <span class="text-[10px] text-slate-400 font-semibold flex items-center"><span class="material-symbols-outlined text-[12px] mr-0.5">air</span> ${avg}kt</span>
           </div>`;
       }
       document.getElementById('miniForecastGrid').innerHTML = htmlForecast;
+
+      // Generar Carrusel Horario (Deslizable)
+      let htmlHourly = '';
+      for (let h = 6; h <= 21; h++) {
+        const i = (diaOffsetActual * 24) + h;
+        if (i >= m.wave_height.length) continue;
+        const h_eff = calcularFisicaJS(spotActual, m.swell_wave_height[i]||0, m.swell_wave_period[i]||0, m.swell_wave_direction[i]||0);
+        const wnd = (w.wind_speed_10m[i] || 0) * 0.54;
+        const dirWnd = w.wind_direction_10m[i] || 0;
+        
+        let htColor = h_eff >= 0.8 ? 'text-surf-good' : h_eff >= 0.4 ? 'text-surf-fair' : h_eff >= 0.2 ? 'text-surf-poor' : 'text-slate-400';
+
+        htmlHourly += `
+          <div onclick="seleccionarHora(${h})" class="flex flex-col items-center justify-between min-w-[70px] p-3 rounded-2xl cursor-pointer transition-colors ${horaSeleccionada === h ? 'bg-white/10 border border-white/20' : 'bg-ocean-800/50 border border-white/5 hover:bg-ocean-800'}">
+            <span class="text-xs text-slate-400 font-bold mb-2">${h}:00</span>
+            <span class="text-base font-black ${htColor}">${h_eff.toFixed(1)}</span>
+            <div class="flex flex-col items-center mt-3 text-slate-300">
+              <span class="material-symbols-outlined text-[16px] text-blue-400" style="transform: rotate(${dirWnd}deg)">arrow_upward</span>
+              <span class="text-[10px] font-bold mt-1">${wnd.toFixed(0)}kt</span>
+            </div>
+          </div>
+        `;
+      }
+      document.getElementById('hourlyScroll').innerHTML = htmlHourly;
+
       actualizarCamSource();
       if(leafletMap) actualizarMapaEnVivo();
+      dibujarGraficas();
     }
 
-    // ==================== MAPA LEAFLET ====================
+    function cambiarSpot(s) { spotActual = s; document.getElementById('spotSelect').value = s; cargarDatosMeteo(s); }
+    function cambiarDiaOffset(d) { diaOffsetActual = d; horaSeleccionada = 14; actualizarUI(); }
+    function seleccionarHora(h) { horaSeleccionada = h; actualizarUI(); }
+
     function initLeafletMap() {
       if (leafletMap) return;
       leafletMap = L.map('map', { zoomControl: false }).setView([40.05, 0.15], 10);
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(leafletMap);
       Object.entries(SPOTS_DB).forEach(([nombre, data]) => {
-        markersLayer[nombre] = L.circleMarker([data.lat, data.lon], { radius: 6, fillColor: '#38bdf8', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(leafletMap);
+        markersLayer[nombre] = L.circleMarker([data.lat, data.lon], { radius: 6, fillColor: '#3b82f6', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(leafletMap);
       });
       actualizarMapaEnVivo();
     }
+
     function actualizarMapaEnVivo() {
       if (!leafletMap || !datosMeteoCache) return;
-      const i = (diaOffsetActual * 24) + horaActual;
+      const i = (diaOffsetActual * 24) + horaSeleccionada;
       Object.entries(SPOTS_DB).forEach(([nombre]) => {
         if (!markersLayer[nombre]) return;
         const h = calcularFisicaJS(nombre, datosMeteoCache.marine.wave_height[i]||0.4, 4.5, 80);
         markersLayer[nombre].unbindTooltip();
         markersLayer[nombre].bindTooltip(`🌊 ${h}m <br> 💨 ${((datosMeteoCache.weather.wind_speed_10m[i]||0)*0.54).toFixed(0)}kt`, { permanent: true, direction: 'top', className: 'spot-tooltip' }).openTooltip();
-        markersLayer[nombre].on('click', () => { cambiarSpot(nombre); navegarVista('dashboard'); });
+        markersLayer[nombre].on('click', () => { cambiarSpot(nombre); window.scrollTo({top: 0, behavior: 'smooth'}); });
       });
     }
 
-    // ==================== NAVEGACIÓN ====================
-    function cambiarSpot(s) { spotActual = s; document.getElementById('spotSelect').value = s; cargarDatosMeteo(s); }
-    function cambiarHoraSlider(val) { horaActual = parseInt(val); actualizarVistaHero(); }
-    function cambiarDiaOffset(off) {
-      diaOffsetActual = off; actualizarVistaHero();
-      [0,1,2,3].forEach(i => {
-        document.getElementById(`btnDay${i}`).className = i === off ? 'px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-700 text-white' : 'px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400';
+    let cHeight, cPeriod;
+    function dibujarGraficas() {
+      if(!datosMeteoCache) return;
+      const ctxH = document.getElementById('chartHeight').getContext('2d');
+      const ctxP = document.getElementById('chartPeriod').getContext('2d');
+      
+      const labels = [], dataH = [], dataP = [];
+      for(let i=0; i<48; i+=3) { // 2 días cada 3h
+        labels.push(`${i%24}:00`);
+        dataH.push(calcularFisicaJS(spotActual, datosMeteoCache.marine.wave_height[i], datosMeteoCache.marine.wave_period[i], datosMeteoCache.marine.wave_direction[i]));
+        dataP.push(datosMeteoCache.marine.wave_period[i]);
+      }
+
+      if(cHeight) cHeight.destroy(); if(cPeriod) cPeriod.destroy();
+      
+      cHeight = new Chart(ctxH, {
+        type: 'bar', data: { labels, datasets: [{ label: 'Altura Ola (m)', data: dataH, backgroundColor: '#3b82f6', borderRadius: 4 }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' } }, x: { grid: { display: false } } } }
+      });
+      cPeriod = new Chart(ctxP, {
+        type: 'line', data: { labels, datasets: [{ label: 'Periodo (s)', data: dataP, borderColor: '#10b981', tension: 0.4 }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' } }, x: { grid: { display: false } } } }
       });
     }
-    function navegarVista(vista) {
-      ['dashboard', 'map', 'charts', 'feedback', 'profile'].forEach(v => {
-        document.getElementById(`view-${v}`).classList.toggle('hidden', v !== vista);
-        document.getElementById(`nav-${v}`).className = v === vista ? 'flex flex-col items-center py-2 text-cyan-400' : 'flex flex-col items-center py-2 text-slate-500 hover:text-slate-300';
-      });
-      if (vista === 'map') setTimeout(initLeafletMap, 200);
-    }
+
     window.addEventListener('DOMContentLoaded', checkAuth);
   </script>
 </body>
