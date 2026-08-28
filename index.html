@@ -160,7 +160,7 @@
         <h1 class="font-black text-lg text-white tracking-tight hidden sm:block">SURFLINE<span class="text-blue-500">CS</span></h1>
       </div>
       
-      <!-- Selector (Contenedor Relativo para anclar el menú en Desktop) -->
+      <!-- Selector -->
       <div id="spotSelectorContainer" class="flex-1 mx-3 sm:mx-6 flex justify-center relative">
         <button onclick="toggleDropdown(event)" class="w-full max-w-[200px] sm:max-w-[250px] bg-ocean-950/80 backdrop-blur text-white font-bold text-[13px] sm:text-sm py-2 px-4 rounded-full border border-white/10 outline-none flex items-center justify-between shadow-lg active:scale-95 transition-transform">
           <div class="flex items-center truncate">
@@ -170,8 +170,8 @@
           <span class="material-symbols-outlined text-slate-400 text-[16px] ml-1">unfold_more</span>
         </button>
 
-        <!-- MENÚ DESPLEGABLE (Anclado aquí para evitar bugs visuales en Desktop) -->
-        <div id="dropdownList" class="hidden fixed sm:absolute inset-0 sm:inset-auto z-[200] sm:z-50 bg-black/70 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none sm:top-[120%] sm:left-1/2 sm:-translate-x-1/2 flex flex-col justify-end sm:block w-full sm:w-[300px]">
+        <!-- MENÚ DESPLEGABLE -->
+        <div id="dropdownList" class="hidden fixed sm:absolute inset-0 sm:inset-auto z-[200] sm:z-50 bg-black/70 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none sm:top-full sm:mt-2 sm:left-1/2 sm:-translate-x-1/2 flex flex-col justify-end sm:block w-full sm:w-[300px]">
           <!-- Zona click fuera en móvil -->
           <div class="flex-1 w-full sm:hidden" onclick="toggleDropdown(event)"></div>
           <div class="w-full bg-ocean-900 sm:bg-ocean-900/95 sm:backdrop-blur-xl border-t sm:border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[75vh] flex flex-col pb-safe">
@@ -218,14 +218,14 @@
       <iframe id="webcamIframe" src="" class="absolute inset-0 w-full h-full border-0 hidden" allow="autoplay; fullscreen" allowfullscreen></iframe>
       
       <div id="webcamFallback" class="hidden absolute inset-0 w-full h-full bg-cover bg-center">
-        <div class="absolute inset-0 bg-ocean-950/80 backdrop-blur-md flex flex-col items-center justify-center p-4">
+        <div class="absolute inset-0 bg-ocean-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4">
           <div class="flex flex-col md:flex-row items-stretch w-full max-w-3xl bg-black/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
             <div class="p-6 flex-1 text-center md:text-left flex flex-col justify-center">
-              <span class="material-symbols-outlined text-2xl text-slate-400 mb-2">videocam_off</span>
-              <h3 class="text-lg font-black text-white leading-tight">Sin Cámara</h3>
-              <p class="text-[11px] text-slate-400 mt-1"><strong id="fbSpotName">Spot</strong> privado. Mostrando Radar GPS.</p>
+              <span class="material-symbols-outlined text-2xl text-slate-400 mb-2">radar</span>
+              <h3 class="text-lg font-black text-white leading-tight">Radar Activo</h3>
+              <p class="text-[11px] text-slate-400 mt-1"><strong id="fbSpotName">Spot</strong> privado. Mostrando satélite en directo.</p>
             </div>
-            <div class="w-full md:w-1/2 h-32 md:h-auto bg-ocean-800 relative border-t md:border-t-0 md:border-l border-white/10 pointer-events-none">
+            <div class="w-full md:w-1/2 h-40 md:h-auto bg-ocean-800 relative border-t md:border-t-0 md:border-l border-white/10 pointer-events-none">
               <iframe id="fallbackMapIframe" width="100%" height="100%" frameborder="0" scrolling="no" src="" class="filter invert-[90%] hue-rotate-180 contrast-125"></iframe>
             </div>
           </div>
@@ -313,7 +313,6 @@
     const { createClient } = window.supabase;
     const supaClient = createClient('https://vovmemnpuneuzgssztdb.supabase.co', 'sb_publishable_Ymmr-4qnnfmrBdG5zrxjKw_qkil_ygE');
 
-    // ==================== LÓGICA DE MODALES (CLICK OUTSIDE Y SCROLL) ====================
     function toggleModal(id) {
       const el = document.getElementById(id);
       const isHidden = el.classList.contains('hidden');
@@ -339,7 +338,6 @@
       }
     }
     
-    // Cerrar modales si se hace clic fuera del contenido principal
     document.querySelectorAll('.custom-modal').forEach(modal => {
       modal.addEventListener('click', () => { modal.classList.add('hidden'); document.body.style.overflow = ''; });
     });
@@ -350,7 +348,6 @@
       }
     });
 
-    // Auth Tabs
     function setAuthMode(mode) {
       if(mode === 'login') {
         document.getElementById('formLogin').classList.remove('hidden'); document.getElementById('formReg').classList.add('hidden');
@@ -410,7 +407,6 @@
       term.scrollTop = term.scrollHeight;
     }
 
-    // ==================== BASE DE DATOS Y CÁMARAS (CON AUTOPLAY REPARADO) ====================
     const img1 = 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1600&q=80';
     const img2 = 'https://images.unsplash.com/photo-1520116468816-95b69f847357?auto=format&fit=crop&w=1600&q=80';
     const img3 = 'https://images.unsplash.com/photo-1495555687398-3f50d6e79e1e?auto=format&fit=crop&w=1600&q=80';
@@ -418,10 +414,11 @@
     const SPOTS_DB = {
       'Voramar':        { lat: 40.06, lon: 0.08, type: 'mjpeg', img: img1, url1: 'https://cam1.voramar.net:445/axis-cgi/mjpg/video.cgi', url2: 'https://cam1.voramar.net:444/axis-cgi/mjpg/video.cgi', azimut: 54, thetaCrit: 65, sBase: 0.05 },
       'Morro de Gos':   { lat: 40.098, lon: 0.147, type: 'none', img: img2, url1: '', azimut: 60, thetaCrit: 65, sBase: 0.05 },
-      'Planetario':     { lat: 39.98, lon: 0.03, type: 'iframe', img: img1, url1: 'https://g0.ipcamlive.com/player/player.php?alias=5d37651a251da&autoplay=1&mute=1', azimut: 26, thetaCrit: 45, sBase: 0.15 },
-      'Gurugú':         { lat: 39.99, lon: 0.04, type: 'iframe', img: img1, url1: 'https://g0.ipcamlive.com/player/player.php?alias=5d37651a251da&autoplay=1&mute=1', azimut: 26, thetaCrit: 45, sBase: 0.15 },
-      'Pirámides':      { lat: 40.05, lon: 0.07, type: 'iframe', img: img2, url1: 'https://www.servigroup.com/es/hotel-koral-beach-oropesa-del-mar/webcam-oropesa/', azimut: 38, thetaCrit: 50, sBase: 0.10 },
-      'Peñíscola Norte':{ lat: 40.37, lon: 0.40, type: 'iframe', img: img2, url1: 'https://www.skylinewebcams.com/webcam/espana/comunidad-valenciana/castellon/peniscola.html?w=5406&autoplay=1', azimut: 10, thetaCrit: 10, sBase: 0.80 },
+      'Planetario':     { lat: 39.98, lon: 0.03, type: 'none', img: img1, url1: '', azimut: 26, thetaCrit: 45, sBase: 0.15 },
+      'Gurugú':         { lat: 39.99, lon: 0.04, type: 'none', img: img1, url1: '', azimut: 26, thetaCrit: 45, sBase: 0.15 },
+      'Heliópolis':     { lat: 40.03, lon: 0.06, type: 'none', img: img3, url1: '', azimut: 35, thetaCrit: 45, sBase: 0.15 },
+      'Pirámides':      { lat: 40.05, lon: 0.07, type: 'none', img: img2, url1: '', azimut: 38, thetaCrit: 50, sBase: 0.10 },
+      'Peñíscola Norte':{ lat: 40.37, lon: 0.40, type: 'none', img: img2, url1: '', azimut: 10, thetaCrit: 10, sBase: 0.80 },
       'Vinaròs':        { lat: 40.47, lon: 0.48, type: 'none', img: img3, url1: '', azimut: 10, thetaCrit: 10, sBase: 0.85 },
       'El Palaciet':    { lat: 40.05, lon: 0.07, type: 'none', img: img1, url1: '', azimut: 45, thetaCrit: 55, sBase: 0.10 },
       'La Renegà':      { lat: 40.03, lon: 0.09, type: 'none', img: img3, url1: '', azimut: 172,thetaCrit: 10, sBase: 0.90 },
@@ -587,3 +584,4 @@
   </script>
 </body>
 </html>
+
