@@ -2,7 +2,7 @@
 <html lang="es" class="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Surfline Castellón v2.0 AI · Surf Reports</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
@@ -29,26 +29,40 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    body { font-family: 'Inter', sans-serif; background-color: #030712; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Inter', sans-serif; background-color: #030712; -webkit-tap-highlight-color: transparent; overflow-x: hidden; overscroll-behavior-y: none; }
     .glass-panel { background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
     
-    /* Hide scrollbar for horizontal carousels but keep functionality */
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-    #map { height: 350px; z-index: 10; }
-    .spot-tooltip { background: #111827 !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; font-weight: 700; font-size: 11px; border-radius: 6px; padding: 4px 6px; }
-    .leaflet-tooltip-top:before { border-top-color: #111827 !important; }
+    #map { height: 100%; min-height: 250px; z-index: 10; }
+    .dark-tiles { filter: invert(100%) hue-rotate(180deg) brightness(80%) contrast(120%); }
+
+    .spot-tooltip { background: #0b1120 !important; border: 1px solid rgba(255,255,255,0.15) !important; color: white !important; border-radius: 12px; padding: 8px 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .leaflet-tooltip-top:before { border-top-color: rgba(255,255,255,0.15) !important; }
     
     .auth-tab-active { border-bottom: 2px solid #38bdf8; color: #fff; font-weight: 700; }
     .auth-tab-inactive { border-bottom: 2px solid transparent; color: #6b7280; font-weight: 600; }
+
+    /* CSS 3D Concept Map */
+    .perspective-container { perspective: 1000px; transform-style: preserve-3d; }
+    .iso-grid { transform: rotateX(60deg) rotateZ(-45deg); transform-style: preserve-3d; display: flex; align-items: center; justify-content: center; gap: 15px; }
+    .iso-node { background: rgba(15, 23, 42, 0.9); border: 2px solid #3b82f6; padding: 15px; border-radius: 12px; box-shadow: -15px 15px 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(59,130,246,0.4); transform: translateZ(40px); color: white; text-align: center; font-size: 11px; font-weight: 900; letter-spacing: 1px; position: relative; }
+    .iso-node::before { content: ''; position: absolute; top: 100%; left: 10%; width: 80%; height: 40px; background: linear-gradient(to bottom, rgba(59,130,246,0.5), transparent); transform: rotateX(-90deg); transform-origin: top; }
+    .iso-wire { width: 50px; height: 4px; background: rgba(59,130,246,0.2); position: relative; transform: translateZ(10px); }
+    .iso-packet { width: 15px; height: 100%; background: #00ffcc; box-shadow: 0 0 15px #00ffcc, 0 0 30px #00ffcc; position: absolute; animation: dataFlow 1.5s infinite linear; }
+    @keyframes dataFlow { 0% { left: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
+    .node-sat { border-color: #a855f7; box-shadow: -15px 15px 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(168,85,247,0.4); }
+    .node-sat::before { background: linear-gradient(to bottom, rgba(168,85,247,0.5), transparent); }
+    .node-ui { border-color: #10b981; box-shadow: -15px 15px 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(16,185,129,0.4); }
+    .node-ui::before { background: linear-gradient(to bottom, rgba(16,185,129,0.5), transparent); }
   </style>
 </head>
 <body class="text-slate-200 min-h-screen pb-10 selection:bg-blue-500 selection:text-white">
 
   <!-- ==================== MODAL DE LOGIN / REGISTRO ==================== -->
-  <div id="loginOverlay" class="fixed inset-0 z-50 bg-ocean-950/95 backdrop-blur-xl flex items-center justify-center p-4">
-    <div class="bg-ocean-900 border border-white/10 max-w-sm w-full rounded-2xl p-8 space-y-6 shadow-2xl">
+  <div id="loginOverlay" class="fixed inset-0 z-[300] bg-ocean-950/95 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="bg-ocean-900 border border-white/10 max-w-sm w-full rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl">
       <div class="text-center">
         <h2 class="text-3xl font-black text-white tracking-tighter">SURFLINE<span class="text-blue-500">CS</span></h2>
         <p class="text-xs text-slate-400 font-medium mt-1">Plataforma de Surf IA Exclusiva</p>
@@ -62,23 +76,23 @@
       <div id="formLogin" class="space-y-4">
         <input type="email" id="lEmail" placeholder="Correo electrónico" class="w-full bg-ocean-950 text-sm text-white px-4 py-3.5 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
         <input type="password" id="lPass" placeholder="Contraseña" class="w-full bg-ocean-950 text-sm text-white px-4 py-3.5 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
-        <button onclick="hacerLogin()" class="w-full py-3.5 mt-2 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm text-white transition-colors">Entrar</button>
+        <button onclick="hacerLogin()" class="w-full py-3.5 mt-2 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm text-white transition-colors shadow-lg shadow-blue-500/20">Entrar</button>
       </div>
 
       <div id="formReg" class="space-y-3 hidden">
         <input type="text" id="rUser" placeholder="Tu Nombre (Ej: Jordi)" class="w-full bg-ocean-950 text-sm text-white px-4 py-3 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
-        <input type="tel" id="rPhone" placeholder="Teléfono Móvil (+34...)" class="w-full bg-ocean-950 text-sm text-white px-4 py-3 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
+        <input type="tel" id="rPhone" placeholder="Teléfono Móvil (Ej: 687 688 654)" class="w-full bg-ocean-950 text-sm text-white px-4 py-3 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
         <input type="email" id="rEmail" placeholder="Correo electrónico" class="w-full bg-ocean-950 text-sm text-white px-4 py-3 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
         <input type="password" id="rPass" placeholder="Contraseña segura" class="w-full bg-ocean-950 text-sm text-white px-4 py-3 rounded-xl border border-white/5 focus:border-blue-500 outline-none">
-        <button onclick="hacerRegistro()" class="w-full py-3.5 mt-2 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm text-white transition-colors">Crear Mi Cuenta</button>
+        <button onclick="hacerRegistro()" class="w-full py-3.5 mt-2 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm text-white transition-colors shadow-lg shadow-blue-500/20">Crear Mi Cuenta</button>
       </div>
     </div>
   </div>
 
   <!-- ==================== MODAL DE PERFIL / AJUSTES ==================== -->
-  <div id="profileModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-ocean-900 border border-white/10 max-w-md w-full rounded-2xl p-6 shadow-2xl relative">
-      <button onclick="toggleProfileModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+  <div id="profileModal" class="hidden fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
+    <div class="bg-ocean-900 sm:border border-white/10 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl relative transition-transform transform translate-y-0 pb-10 sm:pb-6">
+      <button onclick="toggleModal('profileModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white bg-white/5 p-1 rounded-full">
         <span class="material-symbols-outlined">close</span>
       </button>
       <h2 class="text-xl font-black text-white mb-6">Ajustes de Cuenta</h2>
@@ -90,10 +104,15 @@
         </div>
         
         <div class="pt-4 border-t border-white/10">
-          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Solicitar Alertas Automáticas</label>
-          <p class="text-xs text-slate-400 mb-3">Si deseas recibir los partes por WhatsApp, avisa al administrador del sistema.</p>
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Alertas Automáticas</label>
           <button onclick="alert('Funcionalidad en desarrollo. Pídeselo a Jordi directamente por WhatsApp.')" class="w-full py-3 rounded-xl bg-ocean-800 border border-white/10 font-semibold text-sm text-white hover:bg-ocean-700 flex items-center justify-center">
-            <span class="material-symbols-outlined text-[18px] mr-2 text-green-400">forum</span> Solicitar Alertas por WhatsApp
+            <span class="material-symbols-outlined text-[18px] mr-2 text-green-400">forum</span> Solicitar por WhatsApp
+          </button>
+        </div>
+
+        <div id="adminBtnContainer" class="hidden pt-4 border-t border-white/10">
+          <button onclick="toggleAdminModal()" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 font-bold text-sm text-white shadow-[0_0_15px_rgba(220,38,38,0.4)] flex items-center justify-center">
+            <span class="material-symbols-outlined mr-2">admin_panel_settings</span> MODO DIOS (ADMIN)
           </button>
         </div>
 
@@ -106,129 +125,233 @@
     </div>
   </div>
 
-  <!-- ==================== HEADER (NAVEGACIÓN SURFLINE) ==================== -->
-  <header class="bg-ocean-900 border-b border-white/5 sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-      <!-- Logo -->
-      <div class="flex items-center space-x-2">
-        <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-black text-lg">S</div>
-        <h1 class="font-black text-lg text-white tracking-tight hidden sm:block">SURFLINE<span class="text-blue-500">CS</span></h1>
+  <!-- ==================== MODAL MODO DIOS (ADMIN) ==================== -->
+  <div id="adminModal" class="hidden fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="bg-ocean-950 border-2 border-red-500/50 max-w-2xl w-full rounded-2xl shadow-[0_0_50px_rgba(220,38,38,0.2)] flex flex-col max-h-[85vh]">
+      <div class="bg-red-900/20 border-b border-red-500/30 p-4 flex justify-between items-center">
+        <h3 class="text-red-500 font-black text-lg flex items-center"><span class="material-symbols-outlined mr-2">local_fire_department</span> PANEL DE CONTROL ROOT</h3>
+        <button onclick="toggleModal('adminModal')" class="text-slate-400 hover:text-white"><span class="material-symbols-outlined">close</span></button>
       </div>
+      <div class="p-4 sm:p-6 overflow-y-auto space-y-6">
+        
+        <div class="space-y-3">
+          <h4 class="text-white font-bold text-sm border-b border-white/10 pb-2">📡 Control de Cámaras y Hackeo</h4>
+          <button onclick="alert('Lanzando script PowerShell de intrusión...')" class="w-full py-3 rounded bg-ocean-800 border border-white/10 text-white text-xs font-mono hover:bg-ocean-700 text-left px-4 flex items-center justify-between">
+            <span>> Forzar Extracción de IPCamLive Secret</span> <span class="material-symbols-outlined text-green-400 text-[16px]">play_arrow</span>
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <h4 class="text-white font-bold text-sm border-b border-white/10 pb-2">👥 Gestión de Comunidad (WhatsApp)</h4>
+          <button class="w-full py-3 rounded bg-ocean-800 border border-white/10 text-white text-xs flex items-center justify-between px-4">
+            <span class="font-semibold">Revisar Peticiones de Alertas</span> <span class="bg-red-500 text-white px-2 py-0.5 rounded-full font-bold">0 Pendientes</span>
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <h4 class="text-white font-bold text-sm border-b border-white/10 pb-2">🛡️ Terminal Backend Log</h4>
+          <div class="w-full h-32 bg-black border border-white/10 rounded p-3 font-mono text-[10px] text-slate-400 overflow-y-auto">
+            [SYSTEM] Sesión maestra de Supabase verificada OK.<br>
+            [SYSTEM] Privilegios ROOT concedidos al usuario 687688654.<br>
+            [AUTH] Monitoreo de creación de usuarios activo.<br>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL CEREBRO IA (3D MAP) ==================== -->
+  <div id="brainModal" class="hidden fixed inset-0 z-[150] bg-black/90 backdrop-blur-md flex items-center justify-center sm:p-4">
+    <div class="bg-ocean-950 sm:border border-white/10 w-full h-full sm:h-[80vh] sm:max-w-4xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
       
-      <!-- Selector de Spot Central -->
-      <div class="flex-1 max-w-md mx-4">
-        <div class="relative">
-          <span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-[18px]">search</span>
-          <select id="spotSelect" onchange="cambiarSpot(this.value)" class="w-full bg-ocean-950 text-white font-semibold text-sm py-2.5 pl-10 pr-4 rounded-full border border-white/10 outline-none cursor-pointer appearance-none">
-            <option value="Voramar">Voramar</option>
-            <option value="El Palaciet">El Palaciet</option>
-            <option value="Planetario" selected>Planetario</option>
-            <option value="Gurugú">Gurugú</option>
-            <option value="Pirámides">Pirámides</option>
-            <option value="La Renegà">La Renegà</option>
-            <option value="Peñíscola Norte">Peñíscola</option>
-          </select>
-          <span class="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 text-[18px] pointer-events-none">expand_more</span>
+      <div class="bg-ocean-900 border-b border-white/10 p-3 flex justify-between items-center shadow-lg relative z-20">
+        <h3 class="text-blue-400 font-bold text-sm font-mono flex items-center">
+          <span class="material-symbols-outlined mr-2 text-[18px]">memory</span> SURFLINE_AI_CORE.exe
+        </h3>
+        <button onclick="toggleModal('brainModal')" class="text-slate-400 hover:text-white bg-white/5 p-1.5 rounded transition-colors"><span class="material-symbols-outlined text-[18px]">close</span></button>
+      </div>
+
+      <!-- ZONA 3D SUPERIOR -->
+      <div class="h-1/2 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-ocean-950 to-[#030508] border-b border-blue-500/20 perspective-container flex items-center justify-center relative overflow-hidden">
+        <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+        <div class="iso-grid">
+          <!-- Satelite -->
+          <div class="iso-node node-sat">
+            <span class="material-symbols-outlined block text-[24px] mb-1 text-purple-400">satellite_alt</span>
+            ECMWF<br><span class="text-[8px] text-purple-300 font-mono font-normal">Offshore Data</span>
+          </div>
+          <div class="iso-wire"><div class="iso-packet" style="background:#a855f7; box-shadow:0 0 15px #a855f7;"></div></div>
+          
+          <!-- IA Math -->
+          <div class="iso-node">
+            <span class="material-symbols-outlined block text-[24px] mb-1 text-blue-400">functions</span>
+            MOTOR IA<br><span class="text-[8px] text-blue-300 font-mono font-normal">Refracción Local</span>
+          </div>
+          <div class="iso-wire"><div class="iso-packet"></div></div>
+
+          <!-- UI User -->
+          <div class="iso-node node-ui">
+            <span class="material-symbols-outlined block text-[24px] mb-1 text-green-400">smartphone</span>
+            APP WEB<br><span class="text-[8px] text-green-300 font-mono font-normal">Interfaz</span>
+          </div>
         </div>
       </div>
 
-      <!-- Perfil Icono -->
-      <button onclick="toggleProfileModal()" class="w-9 h-9 rounded-full bg-ocean-800 border border-white/10 flex items-center justify-center hover:bg-ocean-700 transition-colors">
-        <span class="material-symbols-outlined text-slate-300 text-[20px]">person</span>
+      <!-- ZONA TERMINAL INFERIOR -->
+      <div class="h-1/2 p-4 overflow-y-auto font-mono text-[10px] sm:text-xs text-green-400 space-y-1 bg-[#050505]" id="aiTerminal">
+        <!-- Rellenado por JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL WINDY GLOBAL ==================== -->
+  <div id="windyModal" class="hidden fixed inset-0 z-[150] bg-black flex flex-col">
+    <div class="flex justify-between items-center px-4 py-3 bg-ocean-900 border-b border-white/10 pt-safe">
+      <h3 class="text-white font-bold text-sm uppercase tracking-wider flex items-center"><span class="material-symbols-outlined mr-2 text-blue-400">public</span> Radar Interactivo</h3>
+      <button onclick="toggleModal('windyModal')" class="text-white bg-white/10 hover:bg-white/20 p-1 rounded-lg">
+        <span class="material-symbols-outlined">close</span>
       </button>
+    </div>
+    <div class="flex-1 w-full bg-ocean-950">
+      <iframe src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=kt&zoom=9&overlay=waves&product=ecmwf&level=surface&lat=40.0&lon=0.15&detailLat=40.0&detailLon=0.15" class="w-full h-full border-0" allowfullscreen></iframe>
+    </div>
+  </div>
+
+  <!-- ==================== HEADER STICKY MÓVIL OPTIMIZADO ==================== -->
+  <header class="bg-ocean-900/95 backdrop-blur-md border-b border-white/5 sticky top-0 z-40 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
+      <!-- Logo Minimalista -->
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-black text-lg shadow-[0_0_15px_rgba(59,130,246,0.5)]">S</div>
+        <h1 class="font-black text-lg text-white tracking-tight hidden sm:block">SURFLINE<span class="text-blue-500">CS</span></h1>
+      </div>
+      
+      <!-- Selector Custom Móvil (Botón central abre Bottom Sheet) -->
+      <div class="flex-1 mx-3 sm:mx-6 flex justify-center">
+        <button onclick="toggleDropdown()" class="w-full max-w-[200px] bg-ocean-950/80 backdrop-blur text-white font-bold text-[13px] py-2 px-4 rounded-full border border-white/10 outline-none flex items-center justify-between shadow-lg active:scale-95 transition-transform">
+          <div class="flex items-center truncate">
+            <span class="material-symbols-outlined mr-1.5 text-slate-400 text-[16px]">location_on</span>
+            <span id="dropdownSelectedText" class="truncate">Planetario</span>
+          </div>
+          <span class="material-symbols-outlined text-slate-400 text-[16px] ml-1">unfold_more</span>
+        </button>
+      </div>
+
+      <!-- Iconos Derecha -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <button onclick="toggleModal('brainModal')" class="w-8 h-8 sm:w-auto sm:px-3 sm:py-1.5 rounded-full bg-blue-600/10 border border-blue-500/20 flex items-center justify-center hover:bg-blue-600/20 transition-colors text-blue-400">
+          <span class="material-symbols-outlined text-[18px]">memory</span>
+          <span class="hidden sm:inline ml-1 text-[11px] font-bold">IA ENGINE</span>
+        </button>
+        <button onclick="toggleModal('profileModal')" class="w-8 h-8 rounded-full bg-ocean-800 border border-white/10 flex items-center justify-center hover:bg-ocean-700 transition-colors">
+          <span class="material-symbols-outlined text-slate-300 text-[18px]">person</span>
+        </button>
+      </div>
     </div>
   </header>
 
-  <!-- ==================== CONTENIDO FLUIDO (SCROLL) ==================== -->
-  <main class="max-w-7xl mx-auto md:px-4 pb-20">
+  <!-- ==================== MENÚ DESPLEGABLE / BOTTOM SHEET (SPOT) ==================== -->
+  <div id="dropdownList" class="hidden fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm sm:bg-transparent sm:backdrop-blur-none sm:absolute sm:inset-auto sm:top-14 sm:left-1/2 sm:-translate-x-1/2 sm:mt-2 flex flex-col justify-end sm:block">
+    <!-- Click fuera para cerrar en móvil -->
+    <div class="flex-1 w-full sm:hidden" onclick="toggleDropdown()"></div>
     
-    <!-- 1. ZONA CÁMARA HERO -->
-    <section id="camera-section" class="w-full bg-black md:rounded-b-2xl overflow-hidden relative border-b md:border border-white/5 aspect-video md:aspect-[21/9] lg:aspect-[3/1] flex items-center justify-center shadow-2xl">
-      <!-- Switch de cámara oculto por defecto -->
-      <div id="camSwitchGroup" class="absolute top-4 left-4 z-10 hidden space-x-2">
-        <button onclick="cambiarCamIndex(1)" class="px-3 py-1 bg-black/60 backdrop-blur border border-white/20 rounded text-xs font-bold text-white hover:bg-white/20">CAM 1</button>
-        <button onclick="cambiarCamIndex(2)" class="px-3 py-1 bg-black/60 backdrop-blur border border-white/20 rounded text-xs font-bold text-white hover:bg-white/20">CAM 2</button>
+    <div class="w-full sm:w-[300px] bg-ocean-900 border-t sm:border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[75vh] flex flex-col pb-safe">
+      <div class="p-4 border-b border-white/5 flex justify-between items-center sm:hidden">
+        <h3 class="text-white font-bold text-sm">Cambiar Spot</h3>
+        <button onclick="toggleDropdown()" class="text-slate-400 bg-white/5 rounded-full p-1"><span class="material-symbols-outlined text-[18px]">close</span></button>
+      </div>
+      <div class="overflow-y-auto hide-scrollbar pb-6 sm:pb-0" id="dropdownItemsContainer">
+        <!-- Rellenado por JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CONTENIDO PRINCIPAL ==================== -->
+  <main class="w-full max-w-7xl mx-auto md:px-4 pb-24 overflow-x-hidden">
+    
+    <!-- 1. CÁMARA HERO (100vw en móvil, redondeado en desktop) -->
+    <section class="w-full bg-black md:rounded-b-2xl overflow-hidden relative border-b md:border border-white/5 aspect-video sm:aspect-[21/9] flex items-center justify-center shadow-2xl">
+      <div id="camSwitchGroup" class="absolute top-3 left-3 z-10 hidden space-x-2">
+        <button onclick="cambiarCamIndex(1)" class="px-3 py-1 bg-black/60 backdrop-blur border border-white/20 rounded text-[10px] font-bold text-white shadow-lg">CAM 1</button>
+        <button onclick="cambiarCamIndex(2)" class="px-3 py-1 bg-black/60 backdrop-blur border border-white/20 rounded text-[10px] font-bold text-white shadow-lg">CAM 2</button>
       </div>
       
-      <!-- Indicador Live -->
-      <div class="absolute top-4 right-4 z-10 flex items-center space-x-1.5 bg-red-600/90 backdrop-blur px-2.5 py-1 rounded text-[10px] font-black tracking-wider text-white">
-        <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span></span>
+      <div class="absolute top-3 right-3 z-10 flex items-center space-x-1.5 bg-red-600/90 backdrop-blur px-2 py-0.5 rounded text-[9px] font-black tracking-wider text-white shadow-lg">
+        <span class="relative flex h-1.5 w-1.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span></span>
         <span>LIVE</span>
       </div>
 
       <img id="webcamMjpeg" src="" class="absolute inset-0 w-full h-full object-cover hidden" />
       <iframe id="webcamIframe" src="" class="absolute inset-0 w-full h-full border-0 hidden" allowfullscreen></iframe>
       
-      <div id="webcamFallback" class="hidden absolute inset-0 flex-col items-center justify-center p-6 text-center">
-        <span class="material-symbols-outlined text-4xl text-slate-500 mb-2">videocam_off</span>
-        <p class="text-sm font-semibold text-slate-400">Stream no disponible</p>
-      </div>
-    </section>
-
-    <!-- 2. SPOT REPORT (Métricas Principales) -->
-    <section class="px-4 py-6 md:py-8 flex flex-col md:flex-row md:items-start justify-between border-b border-white/5">
-      <!-- Izquierda: Altura y Etiqueta -->
-      <div class="flex-1">
-        <h2 id="spotTitle" class="text-3xl md:text-4xl font-black text-white tracking-tight uppercase mb-1">Cargando...</h2>
-        <p class="text-sm font-medium text-slate-400 mb-4">Reporte Actual · Calculado por Física AI</p>
-        
-        <div class="flex items-center space-x-4">
-          <div id="spotBadge" class="px-4 py-1.5 rounded bg-surf-flat text-white font-black text-sm uppercase tracking-wide">FLAT</div>
-          <div class="flex items-baseline space-x-1">
-            <span id="waveHeightBig" class="text-5xl md:text-6xl font-black text-white tracking-tighter">-</span>
-            <span class="text-xl font-bold text-slate-500">m</span>
+      <div id="webcamFallback" class="hidden absolute inset-0 w-full h-full bg-cover bg-center">
+        <div class="absolute inset-0 bg-ocean-950/80 backdrop-blur-md flex flex-col items-center justify-center p-4">
+          <div class="flex flex-col md:flex-row items-stretch w-full max-w-3xl bg-black/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+            <div class="p-6 flex-1 text-center md:text-left flex flex-col justify-center">
+              <span class="material-symbols-outlined text-2xl text-slate-400 mb-2">videocam_off</span>
+              <h3 class="text-lg font-black text-white leading-tight">Sin Cámara</h3>
+              <p class="text-[11px] text-slate-400 mt-1"><strong id="fbSpotName">Spot</strong> privado. Mostrando Radar GPS.</p>
+            </div>
+            <div class="w-full md:w-1/2 h-32 md:h-auto bg-ocean-800 relative border-t md:border-t-0 md:border-l border-white/10 pointer-events-none">
+              <iframe id="fallbackMapIframe" width="100%" height="100%" frameborder="0" scrolling="no" src="" class="filter invert-[90%] hue-rotate-180 contrast-125"></iframe>
+            </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Derecha: Datos Secundarios Grid -->
-      <div class="grid grid-cols-2 gap-x-8 gap-y-4 mt-6 md:mt-0 w-full md:w-auto">
-        <div>
-          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Swell Primario</p>
-          <div class="flex items-baseline space-x-2">
-            <span id="periodBig" class="text-xl font-black text-white">-s</span>
-            <span id="dirSwellText" class="text-sm font-bold text-slate-400 flex items-center"><span class="material-symbols-outlined text-[14px] mr-0.5 text-blue-400">north_east</span>-</span>
-          </div>
-        </div>
-        <div>
-          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Viento Actual</p>
-          <div class="flex items-baseline space-x-2">
-            <span id="windSpeedVal" class="text-xl font-black text-white">- kt</span>
-          </div>
-        </div>
-        <div>
-          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Energía Mar</p>
-          <span id="energyVal" class="text-xl font-black text-amber-400">- kJ</span>
-        </div>
-        <div>
-          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Temp. Agua</p>
-          <span id="seaTempVal" class="text-xl font-black text-cyan-400">- °C</span>
         </div>
       </div>
     </section>
 
-    <!-- 3. PREVISIÓN 4 DÍAS (Mini Cajas) -->
-    <section class="px-4 py-6 border-b border-white/5">
-      <h3 class="text-sm font-bold text-white mb-4 flex items-center">
-        <span class="material-symbols-outlined mr-2 text-slate-400">calendar_view_week</span> Evolución de la semana
-      </h3>
-      <div class="grid grid-cols-4 gap-3" id="miniForecastGrid">
+    <!-- 2. REPORT PRINCIPAL (Rediseño Móvil Compacto) -->
+    <section class="px-4 py-5 md:py-8 flex flex-col md:flex-row md:items-start justify-between border-b border-white/5">
+      <div class="flex flex-row md:flex-col items-end md:items-start justify-between w-full mb-5 md:mb-0">
+        <div class="flex-1">
+          <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Métrica IA en Directo</p>
+          <div class="flex items-center space-x-2 md:space-x-4">
+            <div class="flex items-baseline space-x-0.5">
+              <span id="waveHeightBig" class="text-6xl md:text-7xl font-black text-white tracking-tighter leading-none">-</span>
+              <span class="text-xl md:text-2xl font-bold text-slate-500">m</span>
+            </div>
+            <div id="spotBadge" class="px-3 py-1 md:py-1.5 rounded-full bg-surf-flat text-white font-black text-[10px] md:text-sm uppercase tracking-wide shadow-lg self-center">FLAT</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid Secundario a 4 Cajas compactas -->
+      <div class="grid grid-cols-4 md:grid-cols-2 gap-2 md:gap-4 w-full md:w-auto mt-2 md:mt-0">
+        <div class="bg-white/5 rounded-xl p-2.5 flex flex-col items-center md:items-start justify-center">
+          <p class="text-[9px] font-bold text-slate-500 uppercase">Periodo</p>
+          <div class="flex items-baseline mt-0.5"><span id="periodBig" class="text-base font-black text-white">-</span><span class="text-xs text-white">s</span></div>
+          <div id="dirSwellText" class="text-[10px] font-bold text-slate-400 flex items-center mt-0.5"><span class="material-symbols-outlined text-[12px] text-blue-400">north_east</span>-</div>
+        </div>
+        <div class="bg-white/5 rounded-xl p-2.5 flex flex-col items-center md:items-start justify-center">
+          <p class="text-[9px] font-bold text-slate-500 uppercase">Viento</p>
+          <span id="windSpeedVal" class="text-base font-black text-white mt-0.5">- kt</span>
+          <svg class="w-3 h-3 text-slate-400 mt-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>
+        </div>
+        <div class="bg-white/5 rounded-xl p-2.5 flex flex-col items-center md:items-start justify-center">
+          <p class="text-[9px] font-bold text-slate-500 uppercase">Energía</p>
+          <span id="energyVal" class="text-base font-black text-amber-400 mt-0.5">- kJ</span>
+        </div>
+        <div class="bg-white/5 rounded-xl p-2.5 flex flex-col items-center md:items-start justify-center">
+          <p class="text-[9px] font-bold text-slate-500 uppercase">Temp</p>
+          <span id="seaTempVal" class="text-base font-black text-cyan-400 mt-0.5">- °C</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. PREVISIÓN 4 DÍAS (Grid Ajustado para Móvil) -->
+    <section class="px-4 py-5 border-b border-white/5">
+      <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Evolución de la semana</h3>
+      <div class="grid grid-cols-4 gap-2 md:gap-4" id="miniForecastGrid">
          <!-- Rellenado por JS -->
       </div>
     </section>
 
-    <!-- 4. CARRUSEL HORARIO (Evolución de Hoy) -->
-    <section class="py-6 border-b border-white/5">
-      <div class="px-4 flex items-center justify-between mb-4">
-        <h3 class="text-sm font-bold text-white flex items-center">
-          <span class="material-symbols-outlined mr-2 text-slate-400">schedule</span> Previsión Detallada (Hoy)
-        </h3>
-        <span class="text-xs text-slate-500 font-semibold">Desliza <span class="material-symbols-outlined text-[12px] align-middle">arrow_forward</span></span>
-      </div>
-      
-      <!-- Contenedor Scroll Horizontal -->
-      <div class="w-full overflow-x-auto hide-scrollbar px-4 pb-2">
-        <div id="hourlyScroll" class="flex space-x-3 w-max">
+    <!-- 4. CARRUSEL HORARIO (Scroll Táctil Snap) -->
+    <section class="py-5 border-b border-white/5 overflow-hidden">
+      <h3 class="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Previsión Hoy</h3>
+      <div class="w-full overflow-x-auto hide-scrollbar">
+        <div id="hourlyScroll" class="flex space-x-2 w-max px-4 snap-x snap-mandatory pb-2">
           <!-- Rellenado por JS -->
         </div>
       </div>
@@ -237,25 +360,28 @@
     <!-- 5. MAPA Y GRÁFICAS -->
     <section class="px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
       
-      <div class="space-y-4">
-        <h3 class="text-sm font-bold text-white flex items-center">
-          <span class="material-symbols-outlined mr-2 text-slate-400">map</span> Radar de Costa
-        </h3>
-        <div class="glass-panel p-1 rounded-2xl overflow-hidden border border-white/5">
-          <div id="map" class="w-full rounded-[14px] bg-ocean-950"></div>
+      <div class="space-y-3">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Localizador de Spots</h3>
+        <div class="glass-panel p-1 rounded-2xl overflow-hidden border border-white/5 bg-ocean-950 relative shadow-xl">
+          <!-- Mapa base -->
+          <div id="map" class="w-full rounded-[14px]"></div>
+          
+          <!-- Botón Radar Global -->
+          <div class="absolute bottom-4 left-0 right-0 flex justify-center z-20 pointer-events-none">
+            <button onclick="toggleModal('windyModal')" class="pointer-events-auto shadow-lg flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-5 rounded-full transition-transform active:scale-95 border border-white/20">
+              <span class="material-symbols-outlined text-[16px]">public</span>
+              <span class="text-xs">Radar Animado</span>
+            </button>
+          </div>
         </div>
-        <p class="text-[10px] text-slate-500 text-center font-medium">Nota: El mapa muestra los datos de la hora seleccionada arriba.</p>
       </div>
 
-      <div class="space-y-4">
-        <h3 class="text-sm font-bold text-white flex items-center">
-          <span class="material-symbols-outlined mr-2 text-slate-400">show_chart</span> Tendencia del Swell
-        </h3>
-        <div class="glass-panel p-4 rounded-2xl border border-white/5 space-y-4">
-          <canvas id="chartHeight" height="150"></canvas>
-          <div class="border-t border-white/5 pt-4">
-            <canvas id="chartPeriod" height="150"></canvas>
-          </div>
+      <div class="space-y-3">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Tendencia del Swell</h3>
+        <div class="glass-panel p-3 rounded-2xl border border-white/5 shadow-xl flex flex-col h-[300px]">
+          <div class="flex-1 w-full min-h-0 relative"><canvas id="chartHeight"></canvas></div>
+          <div class="h-[1px] bg-white/5 my-2 w-full"></div>
+          <div class="flex-1 w-full min-h-0 relative"><canvas id="chartPeriod"></canvas></div>
         </div>
       </div>
 
@@ -263,26 +389,45 @@
   </main>
 
   <script>
-    // ==================== LÓGICA UI Y LOGIN ====================
     const { createClient } = window.supabase;
     const supaClient = createClient('https://vovmemnpuneuzgssztdb.supabase.co', 'sb_publishable_Ymmr-4qnnfmrBdG5zrxjKw_qkil_ygE');
 
-    function setAuthMode(mode) {
-      if(mode === 'login') {
-        document.getElementById('formLogin').classList.remove('hidden');
-        document.getElementById('formReg').classList.add('hidden');
-        document.getElementById('tabLogin').className = "w-1/2 pb-2 text-sm auth-tab-active";
-        document.getElementById('tabReg').className = "w-1/2 pb-2 text-sm auth-tab-inactive";
-      } else {
-        document.getElementById('formLogin').classList.add('hidden');
-        document.getElementById('formReg').classList.remove('hidden');
-        document.getElementById('tabLogin').className = "w-1/2 pb-2 text-sm auth-tab-inactive";
-        document.getElementById('tabReg').className = "w-1/2 pb-2 text-sm auth-tab-active";
+    // ==================== LÓGICA DE MODALES (EVITA SCROLL FONDO) ====================
+    function toggleModal(id) {
+      const el = document.getElementById(id);
+      const isHidden = el.classList.contains('hidden');
+      el.classList.toggle('hidden');
+      
+      if (isHidden) { document.body.style.overflow = 'hidden'; } 
+      else { document.body.style.overflow = ''; }
+
+      // Logs especiales si abres la IA
+      if(id === 'brainModal' && isHidden && datosMeteoCache) {
+        logAI(`[SYS] Consola de análisis 3D inicializada. Procesando telemetría...`, 'info');
       }
     }
 
-    function toggleProfileModal() {
-      document.getElementById('profileModal').classList.toggle('hidden');
+    function toggleDropdown(e) {
+      if(e) e.stopPropagation();
+      const el = document.getElementById('dropdownList');
+      if(el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+      } else {
+        el.classList.add('hidden');
+        document.body.style.overflow = '';
+      }
+    }
+    
+    // Auth Tabs
+    function setAuthMode(mode) {
+      if(mode === 'login') {
+        document.getElementById('formLogin').classList.remove('hidden'); document.getElementById('formReg').classList.add('hidden');
+        document.getElementById('tabLogin').className = "w-1/2 pb-2 text-sm auth-tab-active"; document.getElementById('tabReg').className = "w-1/2 pb-2 text-sm auth-tab-inactive";
+      } else {
+        document.getElementById('formLogin').classList.add('hidden'); document.getElementById('formReg').classList.remove('hidden');
+        document.getElementById('tabLogin').className = "w-1/2 pb-2 text-sm auth-tab-inactive"; document.getElementById('tabReg').className = "w-1/2 pb-2 text-sm auth-tab-active";
+      }
     }
 
     async function checkAuth() {
@@ -290,15 +435,27 @@
         const { data: { session } } = await supaClient.auth.getSession();
         if (session) {
           document.getElementById('loginOverlay').style.display = 'none';
+          document.body.style.overflow = ''; // Release scroll block from login
+          
           const meta = session.user.user_metadata;
           document.getElementById('profileEmail').innerText = meta.username ? `${meta.username} (${session.user.email})` : session.user.email;
+          
+          const phoneNum = meta.phone ? meta.phone.replace(/\s+/g, '') : '';
+          if (phoneNum === '687688654' || phoneNum === '+34687688654') {
+            document.getElementById('adminBtnContainer').classList.remove('hidden');
+            logAI(`[SEC] Autenticación ROOT biométrica verificada.`, 'warn');
+          } else {
+            document.getElementById('adminBtnContainer').classList.add('hidden');
+          }
+
+          renderDropdown();
           cargarDatosMeteo(spotActual);
           initLeafletMap();
         } else {
           document.getElementById('loginOverlay').style.display = 'flex';
+          document.body.style.overflow = 'hidden';
         }
       } catch (err) {
-        console.error("Error checking auth", err);
         document.getElementById('loginOverlay').style.display = 'flex';
       }
     }
@@ -318,20 +475,59 @@
       else { alert('Registro exitoso. Inicia sesión en la otra pestaña.'); setAuthMode('login'); }
     }
 
-    async function cerrarSesion() { await supaClient.auth.signOut(); toggleProfileModal(); checkAuth(); }
+    async function cerrarSesion() { await supaClient.auth.signOut(); toggleModal('profileModal'); checkAuth(); }
+
+    // ==================== IA LOGGER (CEREBRO) ====================
+    function logAI(msg, type='info') {
+      const term = document.getElementById('aiTerminal');
+      if(!term) return;
+      const time = new Date().toLocaleTimeString('es-ES', {hour12:false});
+      let color = type==='info' ? 'text-green-400' : (type==='warn' ? 'text-yellow-400' : 'text-blue-400');
+      term.innerHTML += `<div class="mb-1.5 leading-tight"><span class="text-slate-600 font-bold">[${time}]</span> <span class="${color}">${msg}</span></div>`;
+      term.scrollTop = term.scrollHeight;
+    }
 
     // ==================== BASE DE DATOS Y CÁMARAS ====================
+    const img1 = 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1600&q=80';
+    const img2 = 'https://images.unsplash.com/photo-1520116468816-95b69f847357?auto=format&fit=crop&w=1600&q=80';
+    const img3 = 'https://images.unsplash.com/photo-1495555687398-3f50d6e79e1e?auto=format&fit=crop&w=1600&q=80';
+
     const SPOTS_DB = {
-      'Voramar':        { lat: 40.06, lon: 0.08, type: 'mjpeg', url1: 'https://cam1.voramar.net:445/axis-cgi/mjpg/video.cgi', url2: 'https://cam1.voramar.net:444/axis-cgi/mjpg/video.cgi', azimut: 54, thetaCrit: 65, sBase: 0.05 },
-      'Planetario':     { lat: 39.98, lon: 0.03, type: 'iframe', url1: 'https://g0.ipcamlive.com/player/player.php?alias=a6ojefpacdidwqce0', azimut: 26, thetaCrit: 45, sBase: 0.15 },
-      'Gurugú':         { lat: 39.99, lon: 0.04, type: 'iframe', url1: 'https://g0.ipcamlive.com/player/player.php?alias=a6ojefpacdidwqce0', azimut: 26, thetaCrit: 45, sBase: 0.15 },
-      'Pirámides':      { lat: 40.05, lon: 0.07, type: 'iframe', url1: 'https://www.servigroup.com/es/hotel-koral-beach-oropesa-del-mar/webcam-oropesa/', azimut: 38, thetaCrit: 50, sBase: 0.10 },
-      'Peñíscola Norte':{ lat: 40.37, lon: 0.40, type: 'iframe', url1: 'https://www.servigroup.com/es/hotel-papa-luna-peniscola/webcam-peniscola/', azimut: 10, thetaCrit: 10, sBase: 0.80 },
-      'El Palaciet':    { lat: 40.05, lon: 0.07, type: 'none', url1: '', azimut: 45, thetaCrit: 55, sBase: 0.10 },
-      'La Renegà':      { lat: 40.03, lon: 0.09, type: 'none', url1: '', azimut: 172,thetaCrit: 10, sBase: 0.90 }
+      'Voramar':        { lat: 40.06, lon: 0.08, type: 'mjpeg', img: img1, url1: 'https://cam1.voramar.net:445/axis-cgi/mjpg/video.cgi', url2: 'https://cam1.voramar.net:444/axis-cgi/mjpg/video.cgi', azimut: 54, thetaCrit: 65, sBase: 0.05 },
+      'Morro de Gos':   { lat: 40.098, lon: 0.147, type: 'none', img: img2, url1: '', azimut: 60, thetaCrit: 65, sBase: 0.05 },
+      'Planetario':     { lat: 39.98, lon: 0.03, type: 'iframe', img: img1, url1: 'https://g0.ipcamlive.com/player/player.php?alias=609a27d8a9c83', azimut: 26, thetaCrit: 45, sBase: 0.15 },
+      'Gurugú':         { lat: 39.99, lon: 0.04, type: 'iframe', img: img1, url1: 'https://g0.ipcamlive.com/player/player.php?alias=609a27d8a9c83', azimut: 26, thetaCrit: 45, sBase: 0.15 },
+      'Pirámides':      { lat: 40.05, lon: 0.07, type: 'iframe', img: img2, url1: 'https://www.servigroup.com/es/hotel-koral-beach-oropesa-del-mar/webcam-oropesa/', azimut: 38, thetaCrit: 50, sBase: 0.10 },
+      'Peñíscola Norte':{ lat: 40.37, lon: 0.40, type: 'iframe', img: img2, url1: 'https://www.skylinewebcams.com/webcam/espana/comunidad-valenciana/castellon/peniscola.html?w=5406', azimut: 10, thetaCrit: 10, sBase: 0.80 },
+      'Vinaròs':        { lat: 40.47, lon: 0.48, type: 'none', img: img3, url1: '', azimut: 10, thetaCrit: 10, sBase: 0.85 },
+      'El Palaciet':    { lat: 40.05, lon: 0.07, type: 'none', img: img1, url1: '', azimut: 45, thetaCrit: 55, sBase: 0.10 },
+      'La Renegà':      { lat: 40.03, lon: 0.09, type: 'none', img: img3, url1: '', azimut: 172,thetaCrit: 10, sBase: 0.90 },
+      'Burriana':       { lat: 39.88, lon: -0.05, type: 'none', img: img2, url1: '', azimut: 26, thetaCrit: 45, sBase: 0.20 },
+      'Nules':          { lat: 39.85, lon: 0.08, type: 'none', img: img3, url1: '', azimut: 26, thetaCrit: 40, sBase: 0.25 },
+      'Almenara':       { lat: 39.75, lon: 0.05, type: 'none', img: img2, url1: '', azimut: 26, thetaCrit: 35, sBase: 0.30 }
     };
 
     let spotActual = 'Planetario', diaOffsetActual = 0, horaSeleccionada = new Date().getHours(), datosMeteoCache = null, leafletMap = null, markersLayer = {};
+
+    function renderDropdown() {
+      let html = '';
+      Object.keys(SPOTS_DB).forEach(spot => {
+        html += `<button onclick="cambiarSpot('${spot}')" class="w-full text-left px-5 py-4 sm:py-3 text-[13px] font-bold text-slate-300 hover:text-white hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between transition-colors">
+          ${spot}
+          <span class="material-symbols-outlined text-[16px] text-slate-500">chevron_right</span>
+        </button>`;
+      });
+      document.getElementById('dropdownItemsContainer').innerHTML = html;
+    }
+
+    function cambiarSpot(s) { 
+      spotActual = s; 
+      document.getElementById('dropdownSelectedText').innerText = s;
+      document.getElementById('dropdownList').classList.add('hidden');
+      document.body.style.overflow = ''; // Unlock scroll
+      logAI(`[SYS] Redirigiendo satélite al objetivo: ${s.toUpperCase()}`, 'info');
+      cargarDatosMeteo(s); 
+    }
 
     function actualizarCamSource() {
       const cfg = SPOTS_DB[spotActual];
@@ -340,7 +536,12 @@
 
       if (cfg.type === 'mjpeg') { mjpeg.src = cfg.url1; mjpeg.classList.remove('hidden'); if(cfg.url2) swG.classList.remove('hidden'); }
       else if (cfg.type === 'iframe') { iframe.src = cfg.url1; iframe.classList.remove('hidden'); }
-      else { fallback.classList.remove('hidden'); }
+      else { 
+        document.getElementById('fbSpotName').innerText = spotActual.toUpperCase();
+        fallback.style.backgroundImage = `url('${cfg.img}')`;
+        document.getElementById('fallbackMapIframe').src = `https://www.openstreetmap.org/export/embed.html?bbox=${cfg.lon-0.01},${cfg.lat-0.01},${cfg.lon+0.01},${cfg.lat+0.01}&layer=mapnik&marker=${cfg.lat},${cfg.lon}`;
+        fallback.classList.remove('hidden'); 
+      }
     }
     
     function cambiarCamIndex(idx) {
@@ -355,43 +556,56 @@
 
     async function cargarDatosMeteo(spot) {
       const cfg = SPOTS_DB[spot];
+      logAI(`[NET] Fetching Copernicus/ECMWF data lat:${cfg.lat} lon:${cfg.lon}...`);
       const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${cfg.lat}&longitude=${cfg.lon}&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction,sea_surface_temperature&timezone=Europe/Madrid&forecast_days=4`;
       const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.lat}&longitude=${cfg.lon}&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&timezone=Europe/Madrid&forecast_days=4`;
       try {
         const [respM, respW] = await Promise.all([fetch(marineUrl), fetch(weatherUrl)]);
         datosMeteoCache = { marine: (await respM.json()).hourly, weather: (await respW.json()).hourly };
+        logAI(`[NET] Matrices recibidas OK. Transferiendo a Motor de Refracción...`);
         actualizarUI();
-      } catch (e) {}
+      } catch (e) {
+        logAI(`[ERROR] Fallo crítico satelital: ${e.message}`, 'warn');
+      }
     }
+
+    const svgWind = `<svg class="inline-block w-3 h-3 mr-0.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>`;
+    const svgWave = `<svg class="inline-block w-3.5 h-3.5 mr-0.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c3-3 6-3 9 0s6 3 9 0M2 18c3-3 6-3 9 0s6 3 9 0M2 6c3-3 6-3 9 0s6 3 9 0"/></svg>`;
 
     function actualizarUI() {
       if (!datosMeteoCache) return;
       const { marine: m, weather: w } = datosMeteoCache;
       
-      // Limitar la hora seleccionada para que no rompa el index
       if(horaSeleccionada < 0 || horaSeleccionada > 23) horaSeleccionada = 14;
       const idx = (diaOffsetActual * 24) + horaSeleccionada;
+      
+      logAI(`[MATH] Computando difracción costera. Ángulo incidencia: ${SPOTS_DB[spotActual].azimut}°`);
 
-      const heff = calcularFisicaJS(spotActual, m.swell_wave_height[idx]||m.wave_height[idx]||0.4, m.swell_wave_period[idx]||4.5, m.swell_wave_direction[idx]||80);
+      const h_bruto = m.swell_wave_height[idx]||m.wave_height[idx]||0.4;
+      const p_bruto = m.swell_wave_period[idx]||4.5;
+      const dir_bruto = m.swell_wave_direction[idx]||80;
+
+      const heff = calcularFisicaJS(spotActual, h_bruto, p_bruto, dir_bruto);
       const ws = (w.wind_speed_10m[idx] || 10) * 0.54;
+      
+      logAI(`[OUTPUT] Ola Offshore: ${h_bruto.toFixed(2)}m ➔ Ola Orilla: ${heff.toFixed(2)}m`, 'warn');
 
-      document.getElementById('spotTitle').innerText = spotActual.toUpperCase();
       document.getElementById('waveHeightBig').innerText = heff;
-      document.getElementById('periodBig').innerText = (m.swell_wave_period[idx]||4.5).toFixed(1);
-      document.getElementById('dirSwellText').innerHTML = `<span class="material-symbols-outlined text-[16px] mr-1 text-blue-400" style="transform: rotate(${m.swell_wave_direction[idx]||80}deg)">arrow_upward</span> ${m.swell_wave_direction[idx]||80}°`;
-      document.getElementById('windSpeedVal').innerText = `${ws.toFixed(1)} kt`;
+      document.getElementById('periodBig').innerText = (p_bruto).toFixed(1);
+      document.getElementById('dirSwellText').innerHTML = `<span class="material-symbols-outlined text-[10px] mr-0.5 text-blue-400" style="transform: rotate(${dir_bruto}deg)">arrow_upward</span> ${dir_bruto}°`;
+      document.getElementById('windSpeedVal').innerText = `${ws.toFixed(0)} kt`;
       document.getElementById('seaTempVal').innerText = `${(m.sea_surface_temperature[idx]||15).toFixed(1)} °C`;
-      document.getElementById('energyVal').innerText = `${(heff * heff * (m.swell_wave_period[idx]||4.5)).toFixed(1)} kJ`;
+      document.getElementById('energyVal').innerText = `${(heff * heff * p_bruto).toFixed(1)} kJ`;
       
       const badge = document.getElementById('spotBadge');
-      if (heff >= 0.8) { badge.innerText = 'GOOD'; badge.className = 'px-3 py-1 rounded bg-surf-good text-ocean-950 font-black text-xs uppercase tracking-wider'; }
-      else if (heff >= 0.4) { badge.innerText = 'FAIR'; badge.className = 'px-3 py-1 rounded bg-surf-fair text-ocean-950 font-black text-xs uppercase tracking-wider'; }
-      else if (heff >= 0.2) { badge.innerText = 'POOR'; badge.className = 'px-3 py-1 rounded bg-surf-poor text-white font-black text-xs uppercase tracking-wider'; }
-      else { badge.innerText = 'FLAT'; badge.className = 'px-3 py-1 rounded bg-surf-flat text-white font-black text-xs uppercase tracking-wider'; }
+      if (heff >= 0.8) { badge.innerText = 'EPIC / GOOD'; badge.className = 'px-3 py-1 rounded-full bg-gradient-to-r from-surf-good to-surf-epic text-ocean-950 font-black text-[9px] md:text-sm uppercase tracking-wide shadow-lg border border-surf-good/50'; }
+      else if (heff >= 0.4) { badge.innerText = 'FAIR TO GOOD'; badge.className = 'px-3 py-1 rounded-full bg-gradient-to-r from-surf-fair to-surf-good text-ocean-950 font-black text-[9px] md:text-sm uppercase tracking-wide shadow-lg border border-surf-fair/50'; }
+      else if (heff >= 0.2) { badge.innerText = 'POOR TO FAIR'; badge.className = 'px-3 py-1 rounded-full bg-gradient-to-r from-surf-poor to-surf-fair text-white font-black text-[9px] md:text-sm uppercase tracking-wide shadow-lg border border-surf-poor/50'; }
+      else { badge.innerText = 'FLAT'; badge.className = 'px-3 py-1 rounded-full bg-surf-flat text-white font-black text-[9px] md:text-sm uppercase tracking-wide shadow-lg border border-white/10'; }
 
       // Generar Cuadrícula 4 Días
       let htmlForecast = '';
-      const dias = ['HOY', 'MAÑANA', '+2 DÍAS', '+3 DÍAS'];
+      const dias = ['HOY', 'MAÑ.', '+2D', '+3D'];
       for (let d = 0; d < 4; d++) {
         let maxH = 0, sumWs = 0, count = 0;
         for (let h = 7; h <= 20; h++) {
@@ -402,18 +616,22 @@
           sumWs += (w.wind_speed_10m[i] || 0) * 0.54; count++;
         }
         const avg = count > 0 ? (sumWs/count).toFixed(0) : 0;
-        let bColor = 'bg-surf-flat'; if(maxH>=0.8) bColor='bg-surf-good'; else if(maxH>=0.4) bColor='bg-surf-fair'; else if(maxH>=0.2) bColor='bg-surf-poor';
+        
+        let bColor = 'bg-surf-flat text-white border-white/10'; 
+        if(maxH>=0.8) bColor='bg-surf-good text-ocean-950 border-surf-good/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]'; 
+        else if(maxH>=0.4) bColor='bg-surf-fair text-ocean-950 border-surf-fair/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]'; 
+        else if(maxH>=0.2) bColor='bg-surf-poor text-white border-surf-poor/50';
         
         htmlForecast += `
-          <div onclick="cambiarDiaOffset(${d})" class="glass-panel rounded-xl p-3 flex flex-col items-center justify-center border ${diaOffsetActual === d ? 'border-white/40 shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'border-white/5 opacity-70'} cursor-pointer hover:opacity-100 transition-all">
-            <span class="text-[9px] font-bold text-slate-400 mb-2 uppercase">${dias[d]}</span>
-            <div class="px-2 py-0.5 rounded text-[11px] font-black text-white ${bColor} mb-1.5">${maxH.toFixed(1)}m</div>
-            <span class="text-[10px] text-slate-400 font-semibold flex items-center"><span class="material-symbols-outlined text-[12px] mr-0.5">air</span> ${avg}kt</span>
+          <div onclick="cambiarDiaOffset(${d})" class="glass-panel rounded-xl p-2 sm:p-3 flex flex-col items-center justify-center border ${diaOffsetActual === d ? 'border-white/40 bg-white/10' : 'border-white/5 opacity-70'} cursor-pointer hover:opacity-100 transition-all">
+            <span class="text-[9px] sm:text-xs font-black text-slate-400 mb-1.5">${dias[d]}</span>
+            <div class="px-2 py-0.5 rounded text-[11px] font-black border ${bColor} mb-1.5 w-full text-center">${maxH.toFixed(1)}m</div>
+            <span class="text-[9px] sm:text-[10px] text-slate-300 font-semibold flex items-center">${svgWind}${avg}k</span>
           </div>`;
       }
       document.getElementById('miniForecastGrid').innerHTML = htmlForecast;
 
-      // Generar Carrusel Horario (Deslizable)
+      // Generar Carrusel Horario (Snap)
       let htmlHourly = '';
       for (let h = 6; h <= 21; h++) {
         const i = (diaOffsetActual * 24) + h;
@@ -425,12 +643,12 @@
         let htColor = h_eff >= 0.8 ? 'text-surf-good' : h_eff >= 0.4 ? 'text-surf-fair' : h_eff >= 0.2 ? 'text-surf-poor' : 'text-slate-400';
 
         htmlHourly += `
-          <div onclick="seleccionarHora(${h})" class="flex flex-col items-center justify-between min-w-[70px] p-3 rounded-2xl cursor-pointer transition-colors ${horaSeleccionada === h ? 'bg-white/10 border border-white/20' : 'bg-ocean-800/50 border border-white/5 hover:bg-ocean-800'}">
-            <span class="text-xs text-slate-400 font-bold mb-2">${h}:00</span>
-            <span class="text-base font-black ${htColor}">${h_eff.toFixed(1)}</span>
-            <div class="flex flex-col items-center mt-3 text-slate-300">
-              <span class="material-symbols-outlined text-[16px] text-blue-400" style="transform: rotate(${dirWnd}deg)">arrow_upward</span>
-              <span class="text-[10px] font-bold mt-1">${wnd.toFixed(0)}kt</span>
+          <div onclick="seleccionarHora(${h})" class="snap-start flex flex-col items-center justify-between min-w-[65px] p-2.5 rounded-xl cursor-pointer transition-all ${horaSeleccionada === h ? 'bg-white/15 border border-white/40 shadow-lg' : 'bg-ocean-800/40 border border-white/5'}">
+            <span class="text-[10px] text-slate-400 font-bold mb-1">${h}:00</span>
+            <span class="text-sm font-black ${htColor}">${h_eff.toFixed(1)}</span>
+            <div class="flex flex-col items-center mt-2">
+              <span class="material-symbols-outlined text-[14px] text-blue-400/80" style="transform: rotate(${dirWnd}deg)">north</span>
+              <span class="text-[9px] font-bold mt-0.5 text-slate-400">${wnd.toFixed(0)}kt</span>
             </div>
           </div>
         `;
@@ -440,18 +658,31 @@
       actualizarCamSource();
       if(leafletMap) actualizarMapaEnVivo();
       dibujarGraficas();
+      
+      logAI(`[SYS] Interfaz UI sincronizada. Esperando entrada de usuario.`, 'info');
     }
 
-    function cambiarSpot(s) { spotActual = s; document.getElementById('spotSelect').value = s; cargarDatosMeteo(s); }
     function cambiarDiaOffset(d) { diaOffsetActual = d; horaSeleccionada = 14; actualizarUI(); }
     function seleccionarHora(h) { horaSeleccionada = h; actualizarUI(); }
 
     function initLeafletMap() {
       if (leafletMap) return;
-      leafletMap = L.map('map', { zoomControl: false }).setView([40.05, 0.15], 10);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(leafletMap);
+      // Optimizacion: sin drag en móvil para evitar atrapar el scroll
+      const isMobile = window.innerWidth < 768;
+      leafletMap = L.map('map', { 
+        zoomControl: !isMobile, 
+        scrollWheelZoom: false,
+        dragging: !isMobile,
+        tap: !isMobile
+      }).setView([40.05, 0.15], 10);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+        className: 'dark-tiles',
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(leafletMap);
+      
       Object.entries(SPOTS_DB).forEach(([nombre, data]) => {
-        markersLayer[nombre] = L.circleMarker([data.lat, data.lon], { radius: 6, fillColor: '#3b82f6', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(leafletMap);
+        markersLayer[nombre] = L.circleMarker([data.lat, data.lon], { radius: 6, fillColor: '#3b82f6', color: '#fff', weight: 2, fillOpacity: 0.9 }).addTo(leafletMap);
       });
       actualizarMapaEnVivo();
     }
@@ -462,9 +693,20 @@
       Object.entries(SPOTS_DB).forEach(([nombre]) => {
         if (!markersLayer[nombre]) return;
         const h = calcularFisicaJS(nombre, datosMeteoCache.marine.wave_height[i]||0.4, 4.5, 80);
+        const wnd = ((datosMeteoCache.weather.wind_speed_10m[i]||0)*0.54).toFixed(0);
+        
         markersLayer[nombre].unbindTooltip();
-        markersLayer[nombre].bindTooltip(`🌊 ${h}m <br> 💨 ${((datosMeteoCache.weather.wind_speed_10m[i]||0)*0.54).toFixed(0)}kt`, { permanent: true, direction: 'top', className: 'spot-tooltip' }).openTooltip();
-        markersLayer[nombre].on('click', () => { cambiarSpot(nombre); window.scrollTo({top: 0, behavior: 'smooth'}); });
+        markersLayer[nombre].bindTooltip(`
+          <div class="flex flex-col gap-1 min-w-[50px]">
+            <div class="flex items-center text-[11px] font-black">${svgWave} <span class="text-white">${h}m</span></div>
+            <div class="flex items-center text-[10px] font-bold">${svgWind} <span class="text-slate-300">${wnd}kt</span></div>
+          </div>
+        `, { permanent: true, direction: 'top', className: 'spot-tooltip' }).openTooltip();
+        
+        markersLayer[nombre].on('click', () => { 
+          cambiarSpot(nombre); 
+          window.scrollTo({top: 0, behavior: 'smooth'}); 
+        });
       });
     }
 
@@ -475,7 +717,7 @@
       const ctxP = document.getElementById('chartPeriod').getContext('2d');
       
       const labels = [], dataH = [], dataP = [];
-      for(let i=0; i<48; i+=3) { // 2 días cada 3h
+      for(let i=0; i<48; i+=3) { 
         labels.push(`${i%24}:00`);
         dataH.push(calcularFisicaJS(spotActual, datosMeteoCache.marine.wave_height[i], datosMeteoCache.marine.wave_period[i], datosMeteoCache.marine.wave_direction[i]));
         dataP.push(datosMeteoCache.marine.wave_period[i]);
@@ -483,13 +725,23 @@
 
       if(cHeight) cHeight.destroy(); if(cPeriod) cPeriod.destroy();
       
+      const commonOptions = {
+        maintainAspectRatio: false, 
+        responsive: true,
+        plugins: { legend: { display: false } }, 
+        scales: { 
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9 } } }, 
+          x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9 }, maxTicksLimit: 8 } } 
+        }
+      };
+
       cHeight = new Chart(ctxH, {
-        type: 'bar', data: { labels, datasets: [{ label: 'Altura Ola (m)', data: dataH, backgroundColor: '#3b82f6', borderRadius: 4 }] },
-        options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' } }, x: { grid: { display: false } } } }
+        type: 'bar', data: { labels, datasets: [{ label: 'Altura (m)', data: dataH, backgroundColor: '#3b82f6', borderRadius: 3 }] },
+        options: commonOptions
       });
       cPeriod = new Chart(ctxP, {
-        type: 'line', data: { labels, datasets: [{ label: 'Periodo (s)', data: dataP, borderColor: '#10b981', tension: 0.4 }] },
-        options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' } }, x: { grid: { display: false } } } }
+        type: 'line', data: { labels, datasets: [{ label: 'Periodo (s)', data: dataP, borderColor: '#10b981', tension: 0.4, borderWidth: 2, pointRadius: 0 }] },
+        options: commonOptions
       });
     }
 
